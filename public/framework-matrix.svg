@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">App 開發技術選型矩陣</title>
+  <desc id="desc">比較原生、React Native、Flutter 與 Kotlin Multiplatform 的適用情境。</desc>
+  <rect width="1200" height="560" rx="30" fill="#f5f8ff"/>
+  <text x="55" y="65" fill="#142a4a" font-family="Arial, sans-serif" font-size="30" font-weight="700">跨平台選型：先看摩擦點，不要只看排行榜</text>
+  <text x="55" y="98" fill="#5e708a" font-family="Arial, sans-serif" font-size="18">用團隊能力與平台整合需求決定，以下是做小型驗證時可優先觀察的面向。</text>
+  <g font-family="Arial, sans-serif">
+    <rect x="55" y="140" width="1090" height="55" rx="12" fill="#142a4a"/>
+    <text x="85" y="175" fill="#fff" font-size="18" font-weight="700">方案</text><text x="290" y="175" fill="#fff" font-size="18" font-weight="700">最適合</text><text x="560" y="175" fill="#fff" font-size="18" font-weight="700">先驗證</text><text x="850" y="175" fill="#fff" font-size="18" font-weight="700">需要留意</text>
+    <g fill="#fff" stroke="#dbe5f4" stroke-width="2">
+      <rect x="55" y="195" width="1090" height="75"/><rect x="55" y="270" width="1090" height="75"/><rect x="55" y="345" width="1090" height="75"/><rect x="55" y="420" width="1090" height="75"/>
+    </g>
+    <g fill="#1b3151" font-size="18"><text x="85" y="240" font-weight="700">原生 iOS / Android</text><text x="85" y="315" font-weight="700">React Native</text><text x="85" y="390" font-weight="700">Flutter</text><text x="85" y="465" font-weight="700">Kotlin Multiplatform</text></g>
+    <g fill="#4c607b" font-size="17"><text x="290" y="232">最新平台能力、深度原生體驗</text><text x="290" y="307">既有 React / TypeScript 團隊</text><text x="290" y="382">自訂 UI、多平台產品</text><text x="290" y="457">共享商業邏輯、保留原生 UI</text></g>
+    <g fill="#4c607b" font-size="17"><text x="560" y="232">新 SDK、推播、深連結、真機效能</text><text x="560" y="307">原生模組、升級路徑、CI</text><text x="560" y="382">平台外觀、外掛與發布流程</text><text x="560" y="457">共享層邊界、iOS/Android 整合</text></g>
+    <g fill="#4c607b" font-size="17"><text x="850" y="232">雙平台維護成本</text><text x="850" y="307">依賴與版本升級摩擦</text><text x="850" y="382">原生 API 的接合需求</text><text x="850" y="457">架構與團隊學習成本</text></g>
+  </g>
+  <rect x="55" y="515" width="1090" height="2" fill="#b6c9e4"/>
+  <text x="55" y="542" fill="#637793" font-family="Arial, sans-serif" font-size="16">建議：用登入、推播、深連結、原生外觀、CI 測試、商店發布做同一組小型驗證。</text>
+</svg>
