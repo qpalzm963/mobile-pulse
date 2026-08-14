@@ -12,11 +12,17 @@
 
 ## 版型選擇
 
-| 類型 | 必備 HTML 模組 |
-| --- | --- |
-| AI 大小事 | 焦點封面、事件卡、影響力矩陣、快讀清單 |
-| GitHub 雙週雷達 | 熱度卡、用途比較、適用情境、上手指令 |
-| Flutter 實戰拆解 | 風險地圖、可切換步驟、決策卡、驗收清單 |
+| 類型 | 必備 HTML 模組 | 已實作的元件 |
+| --- | --- | --- |
+| AI 大小事 | 焦點封面、事件卡、影響力矩陣、快讀清單 | `ArticleHero`、`EventCard`、`ImpactMatrix`、`QuickRead` |
+| GitHub 雙週雷達 | 熱度卡、用途比較、適用情境、上手指令 | 尚未實作 |
+| Flutter 實戰拆解 | 風險地圖、可切換步驟、決策卡、驗收清單 | 尚未實作 |
+
+元件在 `components/`，樣式在 `app/globals.css` 的「文章敘事模組」區塊。
+
+新增模組樣式時**務必加上 `.article-body` 前綴**：`.article-body p`、`blockquote`、`ol`、`li` 這些既有規則是「class + 元素」選擇器，優先權高於單一 class，不加前綴會被整組蓋掉，而 build、lint、測試都不會報錯 —— 只有把畫面叫出來量測才看得到。
+
+參考實作：`app/articles/ai-weekly-2026-08-14/page.tsx`。
 
 ## 禁止項目
 

@@ -48,3 +48,9 @@ tsconfig.tsbuildinfo
 # local sqlite data
 /.data/
 !.env.example
+
+# 第三方 skill 的安裝目錄。skills-lock.json 有版控，
+# 需要時用 `npx skills experimental_install` 還原，
+# 不把幾萬行第三方程式碼塞進這個 repo。
+/.agents/
+/.claude/skills/last30days

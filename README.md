@@ -10,10 +10,11 @@
 
 新增時請：
 
-1. 先選擇文章類型的 HTML 模組並完成品質檢核；建立 `app/articles/<slug>/page.tsx`，沿用現有文章的導覽、來源與 `Feedback` 區塊。
-2. 將封面與圖表加入 `public/`。
-3. 在 `data/articles.ts` 加入 `slug`、`title`、`summary`、`publishedAt`、`tags`、`coverImage`、`href`；若為最新一期，將 `featured` 設為 `true`。
-4. 執行 `npm test` 與 `npm run build`。
+1. 先依文章類型選好 HTML 敘事模組（見 `docs/article-quality-standard.md`），再寫文案 —— 不是反過來。
+2. 建立 `app/articles/<slug>/page.tsx`，沿用現有文章的導覽與 `Feedback` 區塊。「AI 大小事」的四個模組已是現成元件：`ArticleHero`、`QuickRead`、`EventCard`、`ImpactMatrix`（`components/`，樣式在 `app/globals.css` 的「文章敘事模組」區塊）。
+3. 需要圖表時放進 `public/`。事實的出處寫在對應的模組上（例如 `EventCard` 的 `sources`），不要只在文末列一份總來源清單。
+4. 在 `data/articles.ts` 加入 `slug`、`title`、`summary`、`publishedAt`、`tags`、`href`。沒登記的文章不會出現在首頁，回饋 API 也會拒絕它的 slug。
+5. 執行 `npm test` 與 `npm run build`。
 
 ## 短影片（Remotion）
 
@@ -27,7 +28,11 @@ npm run video:render                                   # 輸出 out/video-vertic
 
 `data/video-config.json` 有進版控，而且是唯一來源 —— `remotion/Root.tsx` 靜態 import 它，沒有預設值可以退，刪掉就編不過。
 
-搜尋抓不到足夠標題時，指令會印出警告並用通用文案補滿缺的重點。那幾句不是查到的內容，發布前要自己改寫。
+內容由 `writing-short-video-script` skill 產生（`.claude/skills/`），`npm run video:create` 只是它的 headless 包裝，內部以 `claude -p` 呼叫，需要 `claude` CLI 在 PATH 上。互動式使用直接叫那個 skill 即可。
+
+**查不到足夠資料時，skill 會停下來說明缺什麼**，`data/video-config.json` 維持原樣，指令以 exit 1 結束。不會用通用文案把重點補滿。
+
+skill 的產出會先經 `scripts/write-video-config.mjs` 驗過 schema（重點固定 3 條、程式碼 ≤25 行且單行 ≤80 字元）才寫檔；驗不過會逐條指出是哪一欄。配色不經模型，由該腳本依主題關鍵字查表決定。
 
 ## 執行與自架
 
