@@ -30,3 +30,13 @@ export const ARTICLES: Article[] = [
     featured: true,
   },
 ];
+
+const SLUGS = new Set(ARTICLES.map((article) => article.slug));
+
+/**
+ * 統計 API 的 slug 白名單。未經此檢查，任意字串都能在 article_views 建立
+ * 資料列，資料表會無上限成長。
+ */
+export function isKnownSlug(slug: string): boolean {
+  return SLUGS.has(slug);
+}
