@@ -12,9 +12,12 @@ test("the initial weekly article is linked from the homepage data", async () => 
   assert.match(article, /Android Developers — Latest updates/);
 });
 
-test("feedback uses exactly one local browser storage key", async () => {
+test("feedback goes through the server endpoints, not local browser storage", async () => {
   const component = await readFile(new URL("components/Feedback.tsx", root), "utf8");
-  assert.match(component, /mobile-pulse-feedback/);
-  assert.match(component, /reaction === next \? null : next/);
+  // 回饋改為伺服器端匿名統計後，反應本身不再存在瀏覽器。localStorage 只用來
+  // 保存 visitor_id（在 lib/visitor-id.ts），元件不得再直接讀寫回饋。
+  assert.doesNotMatch(component, /mobile-pulse-feedback/);
+  assert.match(component, /\/api\/articles\/\$\{slug\}\/feedback/);
+  assert.match(component, /\/api\/articles\/\$\{slug\}\/view/);
   assert.match(component, /aria-pressed/);
 });
