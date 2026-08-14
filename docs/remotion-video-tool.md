@@ -7,10 +7,11 @@
 ## 🛠 功能亮點
 
 1. **網路即時檢索 (Web Search Integration)**：
-   - 輸入主題後，系統會自動在網絡上搜尋相關技術文獻、 release note 與程式範例，合成結構化的影片腳本。
+   - 輸入主題後，`writing-short-video-script` skill 會搜尋並讀取相關技術文獻、release note 與程式範例，寫成結構化的影片腳本。
+   - 查不到足夠資料時 skill 會停手並說明缺什麼，**不會**用通用文案補滿。
 2. **現代暗黑玻璃擬態風格 (Modern Dark Glassmorphic Theme)**：
    - 包含流暢片頭 (Intro)、條列重點卡片 (Key Points)、MacOS 風格程式碼視窗 (Code Card) 與結尾 Call-To-Action (Outro)。
-   - 根據主題類型（iOS/Swift、React/Web、Android/Kotlin）自動套用調和配色方案。
+   - 根據主題關鍵字自動套用配色（iOS/Swift 橘、Android/Kotlin 綠、React/Web 青，其餘為紫），由 `scripts/write-video-config.mjs` 的 `getThemeForTopic()` 決定。
 3. **多尺寸支援 (9:16 & 16:9)**：
    - 預設提供 `ShortVideoVertical` (1080x1920 豎屏 Shorts/Reels/TikTok) 與 `ShortVideoHorizontal` (1920x1080 橫屏)。
 
@@ -20,7 +21,9 @@
 
 ### 步驟 1：輸入主題並自動搜尋生成腳本
 
-在終端機中執行：
+**互動式（推薦）**：直接叫 `writing-short-video-script` skill，講出主題即可。
+
+**指令列**：
 
 ```bash
 npm run video:create -- --topic "您的主題名稱"
@@ -31,10 +34,12 @@ npm run video:create -- --topic "您的主題名稱"
 npm run video:create -- --topic "SwiftUI AsyncImage 最佳實踐"
 ```
 
-系統會查 Hacker News 與 DuckDuckGo，並把生成結果**覆寫**進 `data/video-config.json`。
+指令列的入口 `scripts/generate-video-script.mjs` 只是同一個 skill 的 headless 包裝（內部以 `claude -p` 呼叫），需要 `claude` CLI 在 PATH 上。**流程的唯一來源是 `.claude/skills/writing-short-video-script/SKILL.md`**，不要在腳本裡另外維護一份。
 
-> 若搜尋取到的標題不足 3 條，指令會印出 `⚠️ 搜尋只取到 N 條可用標題`，缺的重點會用通用文案補滿。
-> 那幾句不是查到的內容，發布前務必自己改寫。中文主題較容易觸發這個狀況，可改用英文關鍵字重跑。
+skill 產出的內容會經 `scripts/write-video-config.mjs` 驗過 schema，才**覆寫**進 `data/video-config.json`；驗不過會 exit 1 並逐條指出是哪一欄。
+
+> 資料不足時 skill 會停下來說明缺什麼，`data/video-config.json` 維持原樣、指令以 exit 1 結束。
+> 中文主題較容易查不到料，可改用英文關鍵字重跑。
 
 ---
 
@@ -122,5 +127,8 @@ npm run video:preview
 9:16 與 16:9 各自計算。但字級有下限，**程式碼片段仍請控制在 25 行以內、單行 80 字元以內**，
 否則會縮到看不清楚。
 
-**場景重點固定取 3 條。**
-`keypoint` 場景的版面是為 3 張卡設計的，生成器只會寫入前 3 條；手動加到第 4 條會超出畫面。
+**場景重點固定 3 條。**
+`keypoint` 場景的版面是為 3 張卡設計的，`write-video-config.mjs` 會擋下不是剛好 3 條的內容；手動加到第 4 條會超出畫面。
+
+**配色、`fps`、`id` 由程式決定，不經模型。**
+`write-video-config.mjs` 依主題關鍵字查表補上 `theme`，skill 的 payload 帶了這幾個欄位會被擋下來。要換配色請改 `getThemeForTopic()` 的規則表。
