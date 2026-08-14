@@ -41,3 +41,6 @@ yarn-error.log*
 
 # typescript incremental build
 tsconfig.tsbuildinfo
+
+# cloudflare local secrets
+.dev.vars

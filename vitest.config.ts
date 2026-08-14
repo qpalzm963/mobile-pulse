@@ -15,7 +15,12 @@ export default defineConfig({
         compatibilityDate: "2026-08-01",
         compatibilityFlags: ["nodejs_compat"],
         d1Databases: ["DB"],
-        bindings: { TEST_MIGRATIONS: migrations },
+        bindings: {
+          TEST_MIGRATIONS: migrations,
+          // 正式環境由部署平台的私密設定提供；測試給固定值。
+          ADMIN_PASSWORD: "test-admin-password",
+          ADMIN_SESSION_SECRET: "test-session-secret",
+        },
       },
     }),
   ],

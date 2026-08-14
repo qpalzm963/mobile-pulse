@@ -53,7 +53,7 @@
 1. `.openai/hosting.json` 的 `d1` 由 `null` 改為 `"DB"`。此欄位驅動 `vite.config.ts` 的 `localBindingConfig.d1_databases`；維持 `null` 會讓 `env.DB` 為 undefined，`db/index.ts` 的 `getDb()` 直接 throw。
 2. 於 `db/schema.ts` 定義下方兩張表，執行 `npm run db:generate` 產出第一版 migration（`drizzle/meta/_journal.json` 目前為空）。
 3. 在 README 明確記錄 migration 於本機與正式環境各自的套用指令。
-4. 驗證 `ADMIN_PASSWORD` 與 `ADMIN_SESSION_SECRET` 在本機開發時如何進入 `env`。本專案沒有獨立的 `wrangler.toml`，Worker 設定內嵌於 `vite.config.ts`，本機密文預期走 `.dev.vars`（須實測確認）。此項未驗證前不進入管理端實作。
+4. `ADMIN_PASSWORD` 與 `ADMIN_SESSION_SECRET` 在本機開發時走 `.dev.vars`（已實測確認可進入 `env`）。注意 `.gitignore` 的 `.env*` **不會**匹配 `.dev.vars`，必須另外加一行，否則密文會進版控。
 
 ## 資料流
 
@@ -133,6 +133,7 @@ localStorage
 ### 共同規則
 
 - 所有 `/api/articles/*` 端點必須以 `data/articles.ts` 的 `ARTICLES` 驗證 `slug`，不在清單中即回 400。未驗證會讓任意字串都能建立資料列，造成資料表無上限成長。
+- `visitor_id` 在 POST 走 JSON body、在 GET 走 `X-Visitor-Id` 標頭，一律不放進 query string：query string 會讓這個匿名識別碼進入伺服器記錄與 referrer。
 - 公開 API 不回傳彙總票數。總數只在通過管理登入的 `GET /api/admin/analytics` 出現。理由：站長無法審核或回應公開的負面票數，而規格本身已承認匿名 ID 擋不住惡意灌票。
 
 ## 用戶端行為
