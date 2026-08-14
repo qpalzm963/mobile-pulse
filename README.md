@@ -29,6 +29,10 @@ node dist/standalone/server.js
 
 長期執行建議用 `launchd`（macOS）或 `pm2` 之類的程序管理器顧著。
 
+> **以服務常駐時，`DATABASE_FILE` 一定要設絕對路徑。**
+> 預設值 `.data/mobile-pulse.sqlite` 是相對於工作目錄的，而 `launchd` 預設把 cwd 設成 `/`。
+> 路徑不對時程式會在第一次存取資料庫就丟出錯誤，訊息裡有它實際解析到的絕對路徑 —— 那是出事時第一個要看的東西。
+
 ## 資料庫（匿名統計）
 
 SQLite 單檔，預設 `.data/mobile-pulse.sqlite`（已 gitignore），位置可用 `DATABASE_FILE` 覆寫。schema 定義於 `db/schema.ts`，migration 由 drizzle-kit 產出至 `drizzle/`。
