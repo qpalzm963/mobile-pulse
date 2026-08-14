@@ -1,7 +1,7 @@
 # 內容節奏與極簡統計：設計規格
 
-版本：v2（已納入工程 review 修正）
-狀態：待實作
+版本：v3（自架版；v2 為 Cloudflare 版）
+狀態：已實作。僅內網／本機部署
 
 ## 目的
 
@@ -46,20 +46,24 @@
 
 首頁不顯示任何下一次掃描或發布日期；排程由站長自行設定執行。
 
-## 前置作業
+## 執行環境
 
-統計功能依賴 Cloudflare D1，而目前專案尚未開通。實作必須從這裡開始，順序不可調換。
+自架在單一台機器上（本機／Mac mini），**僅內網或本機存取**，不依賴任何雲端平台。
 
-1. `.openai/hosting.json` 的 `d1` 由 `null` 改為 `"DB"`。此欄位驅動 `vite.config.ts` 的 `localBindingConfig.d1_databases`；維持 `null` 會讓 `env.DB` 為 undefined，`db/index.ts` 的 `getDb()` 直接 throw。
-2. 於 `db/schema.ts` 定義下方兩張表，執行 `npm run db:generate` 產出第一版 migration（`drizzle/meta/_journal.json` 目前為空）。
-3. 在 README 明確記錄 migration 於本機與正式環境各自的套用指令。
-4. `ADMIN_PASSWORD` 與 `ADMIN_SESSION_SECRET` 在本機開發時走 `.dev.vars`（已實測確認可進入 `env`）。注意 `.gitignore` 的 `.env*` **不會**匹配 `.dev.vars`，必須另外加一行，否則密文會進版控。
+- 站台跑在 Node 上：`vinext build` 產出 `dist/standalone/server.js`（`next.config.ts` 設 `output: "standalone"`）。
+- 資料庫是單一 SQLite 檔案，預設 `.data/mobile-pulse.sqlite`，可用 `DATABASE_FILE` 覆寫。
+- `ADMIN_PASSWORD` 與 `ADMIN_SESSION_SECRET` 走 `.env`（`.gitignore` 的 `.env*` 已涵蓋，但 `.env.example` 需要一條 `!` 例外規則才進得了版控）。
+- migration 以 `npm run db:migrate`（drizzle 的 migrator）套用，可重複執行。
+
+> 本規格的第一版建立在 Cloudflare Workers + D1 上。改為自架後 schema 與 migration
+> 完全沿用 —— D1 與 better-sqlite3 同為 sqlite dialect，`db/schema.ts` 與
+> `drizzle/*.sql` 一個字都沒有改動。
 
 ## 資料流
 
 ```
-讀者瀏覽器                        Worker / D1
-──────────                        ───────────
+讀者瀏覽器                        Node 伺服器 / SQLite
+──────────                        ────────────────────
 localStorage
  visitor_id ──┐
  (UUID，首次)  │
@@ -113,9 +117,10 @@ localStorage
 
 - 管理密碼不寫進程式碼或資料庫，由部署環境的私密 `ADMIN_PASSWORD` 提供；session 簽章使用另一個私密 `ADMIN_SESSION_SECRET`。
 - 登入成功後設定簽章、短效的 HTTP-only cookie。
-- Cookie 屬性：`Path=/`、`HttpOnly`、`Secure`、`SameSite=Strict`。
+- Cookie 屬性：`Path=/`、`HttpOnly`、`SameSite=Strict`，以及**條件式的 `Secure`**。
   Cookie **不可**設為 `Path=/admin`：分析端點位於 `/api/admin/analytics`，該路徑不在 `/admin` 之下，cookie 不會被送出，登入會成功但管理頁必定 401。
-- 簽章使用 Workers 內建 WebCrypto 的 HMAC-SHA256，不自行實作雜湊。
+- `Secure` 只在請求本身是 https 時加上，可用 `COOKIE_SECURE` 覆寫。內網自架通常是純 http，無條件加 `Secure` 會造成同一類的「登入成功卻永遠 401」——瀏覽器不會把它送到非安全來源。其餘三個屬性在任何情況下都不放掉。
+- 簽章使用 WebCrypto 的 HMAC-SHA256，不自行實作雜湊。
 - 密碼比對與簽章驗證都比對 HMAC 摘要，不直接以字串相等比較原始值，避免時間差資訊洩漏。
 
 ## API 與頁面
@@ -157,9 +162,9 @@ ping 必須為 fire-and-forget：失敗不阻擋渲染、不拋出、不顯示�
 
 ## 濫用防護
 
-- `/api/articles/*` 與 `/api/admin/login` 掛上 Cloudflare 邊緣 Rate Limiting 規則。
-- 此作法不需應用程式碼，也不儲存任何 IP，與下方隱私限制不衝突。
-- `/api/admin/login` 無節流等同開放密碼暴力破解；寫入端點無節流則直接對應 D1 寫入配額與成本。
+**不做節流。** 部署前提是只在內網或本機存取，沒有外部流量。
+
+若日後要對外開放，這是必須補上的第一件事：`/api/admin/login` 無節流等同開放密碼暴力破解，寫入端點可被灌入大量資料列。屆時要在應用層實作（自架沒有邊緣節流可用），並重新檢視「不記錄 IP」這條限制要怎麼與節流共存。
 
 ## 隱私與限制
 
@@ -170,7 +175,9 @@ ping 必須為 fire-and-forget：失敗不阻擋渲染、不拋出、不顯示�
 
 ## 測試
 
-測試框架採用 `vitest` 搭配 `@cloudflare/vitest-pool-workers`，以 Miniflare 的記憶體 D1 實際執行 SQL。現有 `tests/content.test.mjs` 的 regex 掃檔案方式無法驗證 upsert、去重、cookie 驗證等行為，保留但不擴充。
+測試框架採用 `vitest`，以 better-sqlite3 的記憶體資料庫實際執行 SQL，套用的是與正式環境同一份 migration。現有 `tests/content.test.mjs` 的 regex 掃檔案方式無法驗證 upsert、去重、cookie 驗證等行為，保留但不擴充。
+
+測試之間以 `beforeEach` 明確清表；每個測試檔在自己的行程中執行（`pool: "forks"`），因此各自持有一份獨立的記憶體資料庫。
 
 ### 必要覆蓋
 
@@ -193,7 +200,8 @@ ping 必須為 fire-and-forget：失敗不阻擋渲染、不拋出、不顯示�
 
 [+] /api/admin/*
   ├── 錯誤密碼 → 401 且不設 cookie
-  ├── 正確密碼 → 設定 cookie，屬性含 Path=/ HttpOnly Secure SameSite=Strict
+  ├── 正確密碼 → 設定 cookie，屬性含 Path=/ HttpOnly SameSite=Strict
+  ├── https 請求加 Secure、純 http 請求不加（內網登入才不會壞）
   ├── 未登入呼叫 analytics → 401
   ├── 竄改簽章 → 401
   ├── 過期 cookie → 401
@@ -216,14 +224,14 @@ ping 必須為 fire-and-forget：失敗不阻擋渲染、不拋出、不顯示�
 | --- | --- |
 | 舊 localStorage 回饋遷移 | 無 `visitor_id` 可對應，資料無法歸戶 |
 | 瀏覽資料保留策略與彙總表（rollup） | 現行量級下原始表可支撐數年，過早最佳化 |
-| 防灌票的身分驗證機制 | 以邊緣節流降低而非杜絕，規格已承認此限制 |
+| 防灌票的身分驗證機制 | 部署僅限內網，不做節流也不做身分驗證 |
 | 管理頁圖表、匯出、分群、埋點 | 首版明確排除 |
 | 公開顯示彙總票數 | 已改為僅管理端可見 |
 
 ## 實作順序
 
 ```
-階段 A：D1 開通 + schema + migration        （阻塞後續全部）
+階段 A：schema + migration                  （阻塞後續全部）
    ↓
 階段 B：讀者端 API + Feedback 改寫 + 測試   ┐ 互不相交，可並行
 階段 C：管理端 auth + /admin 頁 + 測試      ┘
