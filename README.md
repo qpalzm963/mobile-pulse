@@ -15,6 +15,20 @@
 3. 在 `data/articles.ts` 加入 `slug`、`title`、`summary`、`publishedAt`、`tags`、`coverImage`、`href`；若為最新一期，將 `featured` 設為 `true`。
 4. 執行 `npm test` 與 `npm run build`。
 
+## 短影片（Remotion）
+
+由主題自動查資料、產出腳本，再渲染成 9:16／16:9 短影片。詳細用法見 [`docs/remotion-video-tool.md`](docs/remotion-video-tool.md)。
+
+```bash
+npm run video:create -- --topic "Swift Concurrency"   # 查資料並覆寫 data/video-config.json
+npm run video:preview                                  # Remotion Studio
+npm run video:render                                   # 輸出 out/video-vertical.mp4
+```
+
+`data/video-config.json` 有進版控，而且是唯一來源 —— `remotion/Root.tsx` 靜態 import 它，沒有預設值可以退，刪掉就編不過。
+
+搜尋抓不到足夠標題時，指令會印出警告並用通用文案補滿缺的重點。那幾句不是查到的內容，發布前要自己改寫。
+
 ## 執行與自架
 
 站台跑在 Node 上，不依賴任何雲端平台。
