@@ -2,6 +2,7 @@ import { adminSecrets, misconfigured } from "../../../../lib/admin-env";
 import {
   createSessionToken,
   sessionCookieHeader,
+  shouldUseSecureCookie,
   verifyPassword,
 } from "../../../../lib/admin-session";
 import { readJson } from "../../../../lib/request";
@@ -24,7 +25,10 @@ export async function POST(request: Request) {
   return new Response(null, {
     status: 204,
     headers: {
-      "set-cookie": sessionCookieHeader(await createSessionToken(secrets.secret)),
+      "set-cookie": sessionCookieHeader(
+        await createSessionToken(secrets.secret),
+        shouldUseSecureCookie(request)
+      ),
     },
   });
 }

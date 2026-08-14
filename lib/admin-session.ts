@@ -80,18 +80,47 @@ export async function isValidSessionToken(
 }
 
 /**
+ * 這個站是否該對 cookie 加上 Secure。
+ *
+ * 自架在內網時常常是純 http（例如 http://mac-mini.local:3000）。瀏覽器不會
+ * 送出帶 Secure 的 cookie 到非安全來源，結果是「登入回 204、管理頁卻一直
+ * 401」—— 跟先前 Path=/admin 那個坑是同一類，只是換了個屬性。
+ *
+ * 預設看這次請求本身是不是 https。放在反向代理後面時代理通常以 http 轉發，
+ * 這時用 COOKIE_SECURE=1 明確指定。
+ */
+export function shouldUseSecureCookie(request: Request): boolean {
+  const override = process.env.COOKIE_SECURE;
+  if (override === "1" || override === "true") return true;
+  if (override === "0" || override === "false") return false;
+
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return true; // 解析不出來就從嚴
+  }
+}
+
+/**
  * Path 必須是 `/` 而不是 `/admin`。
  * 分析端點在 /api/admin/analytics，不在 /admin 之下，Path=/admin 的 cookie
  * 不會被送出，會造成「登入成功但管理頁一直 401」。SameSite=Strict 補上
  * 範圍放寬後的跨站防護。
  */
-export function sessionCookieHeader(token: string): string {
+export function sessionCookieHeader(token: string, secure = true): string {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000);
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+  return cookie(`${SESSION_COOKIE}=${token}`, secure, `Max-Age=${maxAge}`);
 }
 
-export function clearedSessionCookieHeader(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+export function clearedSessionCookieHeader(secure = true): string {
+  return cookie(`${SESSION_COOKIE}=`, secure, "Max-Age=0");
+}
+
+function cookie(pair: string, secure: boolean, maxAge: string): string {
+  const parts = [pair, "Path=/", "HttpOnly"];
+  if (secure) parts.push("Secure");
+  parts.push("SameSite=Strict", maxAge);
+  return parts.join("; ");
 }
 
 export function readSessionToken(request: Request): string | null {

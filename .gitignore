@@ -44,3 +44,7 @@ tsconfig.tsbuildinfo
 
 # cloudflare local secrets
 .dev.vars
+
+# local sqlite data
+/.data/
+!.env.example

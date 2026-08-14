@@ -1,9 +1,9 @@
-import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { GET as analytics } from "../app/api/admin/analytics/route";
 import { POST as login } from "../app/api/admin/login/route";
 import { POST as logout } from "../app/api/admin/logout/route";
 import { SESSION_COOKIE, createSessionToken } from "../lib/admin-session";
+import { raw } from "./db";
 
 const PASSWORD = "test-admin-password";
 const SECRET = "test-session-secret";
@@ -55,10 +55,36 @@ describe("POST /api/admin/login", () => {
 
 describe("POST /api/admin/logout", () => {
   it("清除 cookie", async () => {
-    const response = await logout();
+    const response = await logout(
+      new Request("https://example.com/api/admin/logout", { method: "POST" })
+    );
 
     expect(response.status).toBe(204);
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
+});
+
+describe("內網 http 情境的 cookie", () => {
+  it("純 http 的請求不加 Secure，否則瀏覽器不會送回 cookie", async () => {
+    const response = await login(
+      new Request("http://mac-mini.local:3000/api/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ password: PASSWORD }),
+      })
+    );
+    const cookie = response.headers.get("set-cookie") ?? "";
+
+    expect(response.status).toBe(204);
+    expect(cookie).not.toContain("Secure");
+    // 其餘防護不能因此一起放掉。
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Strict");
+  });
+
+  it("https 的請求仍然加 Secure", async () => {
+    const cookie = (await loginWith(PASSWORD)).headers.get("set-cookie") ?? "";
+
+    expect(cookie).toContain("Secure");
   });
 });
 
@@ -109,23 +135,17 @@ describe("GET /api/admin/analytics", () => {
   });
 
   it("正確彙總瀏覽、有用、沒用與有用率", async () => {
-    await env.DB.batch([
-      env.DB.prepare(
-        "insert into article_views (article_slug, visitor_id, view_day) values (?, ?, ?)"
-      ).bind(SLUG, VISITOR, "2026-08-14"),
-      env.DB.prepare(
-        "insert into article_views (article_slug, visitor_id, view_day) values (?, ?, ?)"
-      ).bind(SLUG, OTHER_VISITOR, "2026-08-14"),
-      env.DB.prepare(
-        "insert into article_views (article_slug, visitor_id, view_day) values (?, ?, ?)"
-      ).bind(SLUG, VISITOR, "2026-08-15"),
-      env.DB.prepare(
-        "insert into article_feedback (article_slug, visitor_id, reaction) values (?, ?, ?)"
-      ).bind(SLUG, VISITOR, "useful"),
-      env.DB.prepare(
-        "insert into article_feedback (article_slug, visitor_id, reaction) values (?, ?, ?)"
-      ).bind(SLUG, OTHER_VISITOR, "not_useful"),
-    ]);
+    const view = raw().prepare(
+      "insert into article_views (article_slug, visitor_id, view_day) values (?, ?, ?)"
+    );
+    const feedback = raw().prepare(
+      "insert into article_feedback (article_slug, visitor_id, reaction) values (?, ?, ?)"
+    );
+    view.run(SLUG, VISITOR, "2026-08-14");
+    view.run(SLUG, OTHER_VISITOR, "2026-08-14");
+    view.run(SLUG, VISITOR, "2026-08-15");
+    feedback.run(SLUG, VISITOR, "useful");
+    feedback.run(SLUG, OTHER_VISITOR, "not_useful");
 
     const body = (await (await analyticsWith(await validCookie())).json()) as {
       articles: Array<Record<string, unknown>>;

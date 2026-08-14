@@ -7,6 +7,7 @@ import {
   isValidSessionToken,
   readSessionToken,
   sessionCookieHeader,
+  shouldUseSecureCookie,
   verifyPassword,
 } from "../lib/admin-session";
 
@@ -98,6 +99,36 @@ describe("cookie 標頭", () => {
 
   it("清除用的標頭把 Max-Age 設為 0", () => {
     expect(clearedSessionCookieHeader()).toContain("Max-Age=0");
+  });
+
+  it("secure 為 false 時只拿掉 Secure，其餘防護保留", async () => {
+    const header = sessionCookieHeader(await createSessionToken(SECRET), false);
+
+    expect(header).not.toContain("Secure");
+    expect(header).toContain("HttpOnly");
+    expect(header).toContain("SameSite=Strict");
+    expect(header).toContain("Path=/;");
+  });
+});
+
+describe("shouldUseSecureCookie", () => {
+  const request = (url: string) => new Request(url);
+
+  it("https 請求要 Secure，http 不要", () => {
+    delete process.env.COOKIE_SECURE;
+
+    expect(shouldUseSecureCookie(request("https://example.com/x"))).toBe(true);
+    expect(shouldUseSecureCookie(request("http://mac-mini.local:3000/x"))).toBe(false);
+  });
+
+  it("COOKIE_SECURE 可以覆寫兩個方向（反向代理後面會用到）", () => {
+    process.env.COOKIE_SECURE = "1";
+    expect(shouldUseSecureCookie(request("http://internal:3000/x"))).toBe(true);
+
+    process.env.COOKIE_SECURE = "0";
+    expect(shouldUseSecureCookie(request("https://example.com/x"))).toBe(false);
+
+    delete process.env.COOKIE_SECURE;
   });
 });
 

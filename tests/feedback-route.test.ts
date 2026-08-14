@@ -1,6 +1,6 @@
-import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { GET, POST } from "../app/api/articles/[slug]/feedback/route";
+import { raw } from "./db";
 
 const SLUG = "app-dev-weekly-2026-08-13";
 const VISITOR = "11111111-2222-4333-8444-555555555555";
@@ -25,11 +25,10 @@ function get(slug: string, visitorId?: string) {
   );
 }
 
-async function rows() {
-  const { results } = await env.DB.prepare(
-    "select article_slug, visitor_id, reaction from article_feedback order by visitor_id"
-  ).all();
-  return results;
+function rows() {
+  return raw()
+    .prepare("select article_slug, visitor_id, reaction from article_feedback order by visitor_id")
+    .all();
 }
 
 describe("POST /api/articles/[slug]/feedback", () => {
@@ -38,7 +37,7 @@ describe("POST /api/articles/[slug]/feedback", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ reaction: "useful" });
-    expect(await rows()).toEqual([
+    expect(rows()).toEqual([
       { article_slug: SLUG, visitor_id: VISITOR, reaction: "useful" },
     ]);
   });
@@ -47,7 +46,7 @@ describe("POST /api/articles/[slug]/feedback", () => {
     await post(SLUG, { visitorId: VISITOR, reaction: "useful" });
     await post(SLUG, { visitorId: VISITOR, reaction: "not_useful" });
 
-    expect(await rows()).toEqual([
+    expect(rows()).toEqual([
       { article_slug: SLUG, visitor_id: VISITOR, reaction: "not_useful" },
     ]);
   });
@@ -58,21 +57,21 @@ describe("POST /api/articles/[slug]/feedback", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ reaction: null });
-    expect(await rows()).toEqual([]);
+    expect(rows()).toEqual([]);
   });
 
   it("對沒有回饋的文章 clear 不會出錯", async () => {
     const response = await post(SLUG, { visitorId: VISITOR, reaction: "clear" });
 
     expect(response.status).toBe(200);
-    expect(await rows()).toEqual([]);
+    expect(rows()).toEqual([]);
   });
 
   it("不同讀者的選擇互不影響", async () => {
     await post(SLUG, { visitorId: VISITOR, reaction: "useful" });
     await post(SLUG, { visitorId: OTHER_VISITOR, reaction: "not_useful" });
 
-    expect(await rows()).toEqual([
+    expect(rows()).toEqual([
       { article_slug: SLUG, visitor_id: VISITOR, reaction: "useful" },
       { article_slug: SLUG, visitor_id: OTHER_VISITOR, reaction: "not_useful" },
     ]);
@@ -84,7 +83,7 @@ describe("POST /api/articles/[slug]/feedback", () => {
       expect(response.status).toBe(400);
     }
 
-    expect(await rows()).toEqual([]);
+    expect(rows()).toEqual([]);
   });
 
   it("未列於 ARTICLES 的 slug 回 400 且不寫入", async () => {
@@ -94,7 +93,7 @@ describe("POST /api/articles/[slug]/feedback", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(await rows()).toEqual([]);
+    expect(rows()).toEqual([]);
   });
 });
 

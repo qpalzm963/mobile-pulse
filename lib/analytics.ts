@@ -28,15 +28,22 @@ export function formatTaipei(utcTimestamp: string | null): string {
   const date = new Date(`${utcTimestamp.replace(" ", "T")}Z`);
   if (Number.isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat("zh-TW", {
-    timeZone: "Asia/Taipei",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+  return (
+    new Intl.DateTimeFormat("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .format(date)
+      // 不同執行環境的 ICU 會用不同的空白字元分隔日期與時間（Node 的 ICU 78
+      // 用 U+2009 thin space，workerd 用一般空格）。統一成普通空格，輸出才
+      // 不會隨執行環境或 ICU 升級而改變。
+      .replace(/\p{Zs}/gu, " ")
+  );
 }
 
 type ViewRow = { article_slug: string; views: number };
