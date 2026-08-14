@@ -4,9 +4,7 @@ export type Article = {
   summary: string;
   publishedAt: string;
   tags: string[];
-  coverImage: string;
   href: string;
-  featured?: boolean;
 };
 
 export const TAGS = [
@@ -18,16 +16,23 @@ export const TAGS = [
   { id: "engineering", label: "工程實務" },
 ];
 
+// 新的排前面：首頁照這個順序列出，最新一期要在最上面。
 export const ARTICLES: Article[] = [
+  {
+    slug: "ai-weekly-2026-08-14",
+    title: "Agent 開始戳你的 API 了",
+    summary: "這期三件事有一條共同線索：出問題的不是模型，是它們接上去的那些介面。",
+    publishedAt: "2026.08.14",
+    tags: ["ai", "engineering"],
+    href: "/articles/ai-weekly-2026-08-14",
+  },
   {
     slug: "app-dev-weekly-2026-08-13",
     title: "本週 App 開發新技術與工具週報",
     summary: "Android、Apple、Flutter 與 AI 開發工具，這週哪些更新值得放進你的開發流程？",
     publishedAt: "2026.08.13",
     tags: ["ai", "android", "ios", "cross-platform", "engineering"],
-    coverImage: "/weekly-cover.png",
     href: "/articles/app-dev-weekly-2026-08-13",
-    featured: true,
   },
 ];
 

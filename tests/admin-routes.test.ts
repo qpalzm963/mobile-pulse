@@ -3,7 +3,22 @@ import { GET as analytics } from "../app/api/admin/analytics/route";
 import { POST as login } from "../app/api/admin/login/route";
 import { POST as logout } from "../app/api/admin/logout/route";
 import { SESSION_COOKIE, createSessionToken } from "../lib/admin-session";
+import { ARTICLES } from "../data/articles";
 import { raw } from "./db";
+
+type AnalyticsBody = { articles: Array<Record<string, unknown>> };
+
+/**
+ * 依 slug 取出該篇的統計，而不是取 articles[0]。
+ *
+ * 文章清單會一直增加，而 analytics 的排序不保證把受測的那篇放在最前面；
+ * 寫死索引會讓「新增一篇文章」弄壞這些跟文章內容無關的測試。
+ */
+function articleIn(body: AnalyticsBody, slug: string) {
+  const found = body.articles.find((article) => article.slug === slug);
+  if (!found) throw new Error(`analytics 沒有列出 ${slug}`);
+  return found;
+}
 
 const PASSWORD = "test-admin-password";
 const SECRET = "test-session-secret";
@@ -119,12 +134,11 @@ describe("GET /api/admin/analytics", () => {
   });
 
   it("沒有任何資料時仍列出每篇文章，計數為 0、有用率為 null", async () => {
-    const body = (await (await analyticsWith(await validCookie())).json()) as {
-      articles: Array<Record<string, unknown>>;
-    };
+    const body = (await (await analyticsWith(await validCookie())).json()) as AnalyticsBody;
 
-    expect(body.articles).toHaveLength(1);
-    expect(body.articles[0]).toMatchObject({
+    // 每一篇都要出現，缺一篇代表統計頁會漏掉某篇文章。
+    expect(body.articles).toHaveLength(ARTICLES.length);
+    expect(articleIn(body, SLUG)).toMatchObject({
       slug: SLUG,
       views: 0,
       useful: 0,
@@ -147,16 +161,14 @@ describe("GET /api/admin/analytics", () => {
     feedback.run(SLUG, VISITOR, "useful");
     feedback.run(SLUG, OTHER_VISITOR, "not_useful");
 
-    const body = (await (await analyticsWith(await validCookie())).json()) as {
-      articles: Array<Record<string, unknown>>;
-    };
+    const body = (await (await analyticsWith(await validCookie())).json()) as AnalyticsBody;
 
-    expect(body.articles[0]).toMatchObject({
+    expect(articleIn(body, SLUG)).toMatchObject({
       views: 3,
       useful: 1,
       notUseful: 1,
       usefulRate: 0.5,
     });
-    expect(body.articles[0].lastFeedbackAt).toBeTruthy();
+    expect(articleIn(body, SLUG).lastFeedbackAt).toBeTruthy();
   });
 });
