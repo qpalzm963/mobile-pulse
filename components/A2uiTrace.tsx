@@ -10,34 +10,34 @@ const STEPS: TraceStep[] = [
   {
     number: "01",
     role: "AGENT",
-    title: "判斷文字不夠用",
+    title: "使用者說：我要訂位",
     detail:
-      "使用者要預約，日期與人數不能只靠一句聊天文字安全地猜。agent 決定請 client 顯示一個表單。",
-    handoff: "輸出：宣告式 UI 描述",
+      "聊天裡還不知道日期和人數。agent 不用猜，而是請 App 顯示一個可填寫的訂位表單。",
+    handoff: "正式名稱：產生宣告式 UI 描述",
   },
   {
     number: "02",
     role: "STREAM",
-    title: "送出元件與資料",
+    title: "App 收到表單說明",
     detail:
-      "surfaceUpdate 與 dataModelUpdate 以 JSONL/SSE 逐筆送達；這些訊息是資料，不是 Dart 程式碼。",
-    handoff: "輸出：component IDs、binding 與初始值",
+      "訊息只說明要有日期、人數和送出按鈕，以及它們的初始值；傳來的是資料，不是 Dart 程式碼。",
+    handoff: "正式名稱：JSONL/SSE 的 surfaceUpdate、dataModelUpdate",
   },
   {
     number: "03",
     role: "FLUTTER RENDERER",
-    title: "映射為已批准的 widget",
+    title: "Flutter App 自己組出 widget",
     detail:
-      "renderer 只從 app 的 catalog 取出已實作的 Card、TextField、DatePicker 與 Button；未知元件一律 fallback。",
-    handoff: "輸出：使用者看得到、可操作的 Flutter UI",
+      "renderer 像一個 WidgetFactory：只從 App 已批准的清單取出 Card、TextField、DatePicker 和 Button。遇到不認得的元件，就顯示 fallback。",
+    handoff: "正式名稱：renderer 依 catalog 映射 widget tree",
   },
   {
     number: "04",
     role: "USER ACTION",
-    title: "操作回到既有後端流程",
+    title: "使用者按下送出",
     detail:
-      "使用者送出後，client 回傳 userAction；真正的預約仍由既有 API、登入狀態與授權檢查執行。",
-    handoff: "輸出：受控事件，不是直接副作用",
+      "Button 的 onPressed 只回傳「使用者想送出訂位」這個事件。真正建立訂位，仍要走既有 API、登入狀態與授權檢查。",
+    handoff: "正式名稱：userAction 回傳受控 action",
   },
 ];
 
@@ -48,8 +48,8 @@ const STEPS: TraceStep[] = [
 export function A2uiTrace() {
   return (
     <section className="a2ui-trace" aria-labelledby="a2ui-trace-title">
-      <p className="eyebrow">一次表單的資料流</p>
-      <h3 id="a2ui-trace-title">Agent → stream → Flutter renderer → action</h3>
+      <p className="eyebrow">用 Flutter 熟悉的方式理解</p>
+      <h3 id="a2ui-trace-title">一個訂位表單怎麼在 Flutter App 出現</h3>
       <ol>
         {STEPS.map((step) => (
           <li key={step.number}>

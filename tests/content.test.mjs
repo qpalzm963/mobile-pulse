@@ -20,8 +20,11 @@ test("the A2UI Flutter article is published with its teaching modules and offici
   );
 
   assert.match(articles, /slug: "a2ui-flutter-renderer"/);
+  assert.match(article, /<FlutterConceptMap\s*\/>/);
   assert.match(article, /<A2uiTrace/);
   assert.match(article, /<ControlBoundary/);
+  assert.match(article, /不是 Dart 原始碼/);
+  assert.match(article, /先用 Flutter 的方式理解 A2UI/);
   assert.match(article, /A2UI 官方專案/);
   assert.match(article, /Flutter GenUI SDK/);
   assert.match(article, /A2UI v0\.9 extension specification/);

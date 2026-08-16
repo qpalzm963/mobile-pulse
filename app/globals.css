@@ -182,6 +182,19 @@ footer p:last-child{margin-left:auto}
 .article-body .control-boundary li{font:400 13.5px/1.7 var(--sans);color:var(--ink);margin:0 0 8px;padding:0}
 .article-body .control-boundary li:last-child{margin-bottom:0}
 
+.article-body .flutter-concept-map{margin:24px 0 30px;border:1px solid var(--rule);border-radius:4px;background:var(--card);padding:20px 22px}
+.article-body .flutter-concept-map h3{font:600 18px/1.4 var(--sans);letter-spacing:-.01em;color:var(--ink);margin:6px 0 18px}
+.article-body .flutter-concept-map table{width:100%;border-collapse:collapse;text-align:left}
+.article-body .flutter-concept-map th,.article-body .flutter-concept-map td{border-top:1px solid var(--rule);padding:14px 16px;vertical-align:top}
+.article-body .flutter-concept-map thead th{font:500 10px/1.5 var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase;background:var(--wash)}
+.article-body .flutter-concept-map tbody th{width:32%;font:600 14px/1.5 var(--sans);color:var(--accent)}
+.article-body .flutter-concept-map td strong{display:block;font:600 14px/1.5 var(--sans);color:var(--ink);margin:0 0 5px}
+.article-body .flutter-concept-map td span{display:block;font:400 13.5px/1.75 var(--sans);color:var(--ink)}
+
+.article-body code{font:400 12.5px/1.5 var(--mono);background:var(--wash);padding:2px 5px;border-radius:3px;color:var(--ink)}
+.article-body pre{margin:20px 0 26px;border:1px solid var(--rule);border-radius:4px;background:var(--card);padding:16px 18px;overflow-x:auto}
+.article-body pre code{background:none;padding:0;font-size:12.5px;line-height:1.65;display:block}
+
 /* ── 窄螢幕 ───────────────────────────────────────────── */
 @media(max-width:900px){
   .site-header{padding:0 20px;gap:14px}
@@ -208,4 +221,10 @@ footer p:last-child{margin-left:auto}
   .article-body .a2ui-trace{padding:18px}
   .article-body .a2ui-trace ol,.article-body .control-boundary{grid-template-columns:1fr}
   .article-body .a2ui-trace li{padding:13px}
+  .article-body .flutter-concept-map{padding:18px}
+  .article-body .flutter-concept-map table,.article-body .flutter-concept-map tbody,.article-body .flutter-concept-map tr,.article-body .flutter-concept-map th,.article-body .flutter-concept-map td{display:block;width:100%}
+  .article-body .flutter-concept-map thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .article-body .flutter-concept-map tbody tr{border-top:1px solid var(--rule);padding:14px 0}
+  .article-body .flutter-concept-map tbody th,.article-body .flutter-concept-map td{border:0;padding:0}
+  .article-body .flutter-concept-map tbody th{margin:0 0 6px}
 }

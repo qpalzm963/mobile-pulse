@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { A2uiLandscapeTable } from "../../../components/A2uiLandscapeTable";
 import { A2uiTrace } from "../../../components/A2uiTrace";
 import { ArticleHero } from "../../../components/ArticleHero";
 import { ArticleToc } from "../../../components/ArticleToc";
 import { ControlBoundary } from "../../../components/ControlBoundary";
 import { Feedback } from "../../../components/Feedback";
+import { FlutterConceptMap } from "../../../components/FlutterConceptMap";
 import { QuickRead } from "../../../components/QuickRead";
 
 export default function A2uiFlutterRendererArticle() {
@@ -21,84 +23,127 @@ export default function A2uiFlutterRendererArticle() {
       <div className="article-shell">
         <article className="article-body">
           <ArticleHero
-            eyebrow="AI 開發 / Flutter 01"
-            title="一個表單怎麼從 agent 走進你的 Flutter App"
-            dek="A2UI 不是讓模型寫 widget；它讓 agent 描述介面，再由你的 Flutter renderer 決定哪些元件真的能出現。"
+            eyebrow="AI 開發 / 專題報導"
+            title="當 AI Agent 學會「說 UI」：A2UI 架構與 App 落地實踐"
+            dek="Google 開源新標準 A2UI，讓 Agent 用宣告式 JSON 描述介面。不用讓模型寫 Dart 或 React 程式碼，真正把元件、狀態與安全邊界留在你的 App 手中。"
             publishedAt="2026.08.16"
-            readingTime="7 MIN READ"
-            tags={["AI 開發", "Flutter", "工程實務"]}
+            readingTime="8 MIN READ"
+            tags={["AI 開發", "Flutter", "跨平台", "工程實務"]}
             signals={[
-              { value: "4 步", label: "把 agent 的描述變成受控的 Flutter 互動" },
-              { value: "1 份", label: "catalog 決定 agent 能要求哪些 widget" },
-              { value: "0 段", label: "agent 直接執行的 Dart 程式碼" },
+              { value: "4 步", label: "把 agent 意圖轉為受控原生 UI" },
+              { value: "0 行", label: "client 直接執行的不可信代碼" },
+              { value: "100%", label: "符合既有原生 Design System" },
             ]}
           />
 
           <QuickRead
             items={[
-              "A2UI 傳的是宣告式 JSON：它說明想呈現什麼，不是把 Dart 原始碼送進你的 App。",
-              "Flutter renderer 以本地 catalog 將抽象 component 映射為你已寫好、已測試的 widget。",
-              "第一次導入應選摘要卡或資料收集表單；付款、刪除與權限異動仍走既有確認與授權流程。",
+              "A2UI 傳來的是「想顯示什麼」的 JSON，不是 Dart 原始碼；你的 Flutter App 不會下載或執行外部代碼。",
+              "A2UI 的哲學是「安全如資料，表達如程式碼」：Agent 傳宣告式 JSON，Client 透過 Catalog 白名單進行原生渲染。",
+              "副作用永遠隔離：UI 上的按鈕只發送事件意圖，付款、刪除與權限操作仍必須走後端既有授權驗證。",
             ]}
           />
 
           <p className="lead">
-            想像使用者在聊天裡說：「幫我預約下週三晚上兩位。」agent 知道自己還缺時間與人數，於是需要一個表單。問題不是它能不能把表單畫出來，而是：它能不能把任意 widget、任意行為塞進你的 Flutter App？A2UI 的答案是不能。
+            今天的 AI Agent 已經會寫程式、會搜尋網路、會下 Shell 指令。但當它需要呈現結構化資訊——例如比較表格、預約時段選單或多步驟表單時，最常見的情況依然是：它只能回覆你一大段純文字或 Markdown。
           </p>
 
-          <h2>01 / A2UI 不是讓 agent 寫 widget</h2>
+          <h2>01 / 問題：Agent 為什麼不能直接「寫程式碼」生畫面？</h2>
           <p>
-            A2UI（Agent-to-User Interface）把介面生成與介面執行拆開。agent 回傳一份描述 UI 結構、資料與互動意圖的 declarative JSON；client 端的 renderer 再把它轉為真正的原生元件。對 Flutter 工程師而言，這更像把遠端資料餵給一個受限制的 widget factory，而不是把模型產出的 Dart 拿去編譯或執行。
+            在對話中，如果使用者說：「幫我預約下週三晚上兩位」，純文字對話需要來回問答多次才能補齊資訊；若給予一個互動表單，一步就能完成。然而，業界過去嘗試讓模型「直接產生前端程式碼（HTML / React / Flutter Dart）」在生產環境遭遇了嚴重困境：
           </p>
+          <ul>
+            <li><strong>極大安全漏洞</strong>：在 Client 端動態載入或 <code>eval()</code> 模型生成的代碼，等同於開放任意程式碼執行（RCE）與 XSS 攻擊。</li>
+            <li><strong>破壞 Design System</strong>：模型自由發揮的 CSS 或排版，無法維持團隊統一的字體、間距、圓角與無障礙（a11y）標準。</li>
+            <li><strong>跨平台不可能</strong>：模型難以在同一對話中，同時精準生成一套 Flutter Widget 與一套 React Component。</li>
+          </ul>
+
+          <h2>02 / A2UI 設計哲學：安全如資料，表達如程式碼</h2>
           <p>
-            因此 agent 可以要求「一個有日期欄位與送出按鈕的預約介面」，但不能自帶 <code>Widget</code> 實作，更不能呼叫你的私有 service、讀 token，或略過既有的登入與權限檢查。是否支援某個 component、它有哪些 props、按下按鈕後接到哪個 callback，始終由 App 端決定。
+            Google 開源的 <strong>A2UI（Agent-to-User Interface）</strong> 提出了一個極其優雅的解法：<strong>Agent 只輸出宣告式的 JSON，用資料表達 UI 的「意圖」，而不是 UI 的「實作」。A2UI 傳遞的是 UI 結構與資料描述，不是 Dart 原始碼。</strong>
+          </p>
+          <pre><code>{`// Agent 輸出的極簡 A2UI 宣告範例
+{
+  "type": "card",
+  "props": { "title": "預約確認" },
+  "children": [
+    { "type": "text", "content": "已為您保留 2 位座位" },
+    { "type": "datePicker", "label": "選擇日期", "value": "2026-08-19" },
+    { "type": "button", "label": "確認預約", "action": "submit_booking" }
+  ]
+}`}</code></pre>
+          <p>
+            Client 端（無論是 Flutter、iOS 原生還是 Web）只負責讀取這份抽象的 JSON 描述，再將它對應到本地已經編譯、已經測試過的原生元件。
           </p>
 
-          <h2>02 / 一次表單怎麼走進 Flutter App</h2>
+          <A2uiLandscapeTable />
+
+          <h2>03 / 先用 Flutter 的方式理解 A2UI</h2>
           <p>
-            從資料流看會比較直覺：agent 先判斷文字不足以完成任務，再逐步送出 UI 描述；Flutter 接到後只負責解析、驗證與渲染。使用者操作則回到你既有的 application flow。
+            先別把 A2UI 想成 AI 在幫你畫畫面。對 Flutter 或前端工程師而言，它更像後端傳來一份「這次畫面需要哪些欄位」的設定資料，而你的 App 裡有一個<strong>受限制的 Widget Factory</strong>。
+          </p>
+          <FlutterConceptMap />
+          <p>
+            這個工廠絕不會憑空長出未知的程式碼：它只使用團隊明確允許的 Widget（稱為 <code>Catalog</code> 白名單），也只把點擊事件接到你預先設定好的 Callback。
+          </p>
+
+          <h2>04 / 一次表單怎麼走進 App：4 步架構時序</h2>
+          <p>
+            A2UI 的通訊架構遵循清晰的 4 步循環：
           </p>
           <A2uiTrace />
           <p>
-            這裡最容易誤會的是第 2 步。像 <code>surfaceUpdate</code>、<code>dataModelUpdate</code> 與 <code>userAction</code> 這類協定訊息是資料交換；傳輸可隨整合方式採用串流或其他 transport，但它們不會使 client 執行 agent 提供的 Dart。真正的副作用，例如建立預約，仍應由你在收到 action 後呼叫既有 API，並在 server 端再次驗證身分、可用名額與權限。
+            協定中的 <code>surfaceUpdate</code>（介面結構更新）、<code>dataModelUpdate</code>（欄位數值更新）與 <code>userAction</code>（使用者互動事件）均為純資料交換。傳輸可走任何 Transport（如 Google A2A Protocol、WebSocket 或 SSE 串流），但核心原則不變：<strong>Client 端不執行模型產出的可執行代碼。</strong>
           </p>
 
-          <h2>03 / Catalog 是你的 widget allowlist</h2>
+          <h2>05 / Client 端必須守住的防禦邊界</h2>
           <p>
-            catalog 是 A2UI 最重要的心智模型：它不是「目前有哪些元件可以秀」，而是允許清單。你可把 <code>TextField</code>、<code>DatePicker</code>、<code>Card</code>、<code>Button</code> 等抽象類型，映射到團隊設計系統中已審核的 Flutter widget；agent 只能引用這些名稱與你明定可接受的欄位。
-          </p>
-          <p>
-            這個邊界也讓跨平台變得務實。同一份 A2UI 描述可在不同 client 使用各自的原生實作：Flutter 選 Material 或自家 Design System，Web 選自己的 component library。共同的是資料契約，不是畫面像素或程式碼。Flutter 的 GenUI SDK 則是可用來探索這種 renderer 模式的實作選項之一。
-          </p>
-
-          <h2>04 / Renderer 要守住哪些邊界</h2>
-          <p>
-            把 renderer 當成不可信輸入的入口來設計。它的工作不是盡力把任何 payload 畫出來，而是只把符合 catalog 與資料契約的部分畫出來；不符合時，讓使用者得到安全、可理解的 fallback，也讓團隊得到可追查的紀錄。
+            在實作 Client 端的 Renderer 時，務必把來自 Agent 的 Payload 當作<strong>不可信輸入（Untrusted Input）</strong>來防禦。
           </p>
           <ControlBoundary />
           <p>
-            實作上，unknown component、binding 找不到資料、schema 版本不相容與 action 名稱不在 allowlist，都應是可觀測的拒絕情況。畫面可以退回「這個互動目前無法顯示，請改用一般流程」，而不是猜測如何執行。這不是犧牲 agent 體驗；這是讓它能在產品裡被維護與稽核的前提。
+            具體實作上，如果 Agent 要求了一個不在 Catalog 中的未知元件，或者 Action 名稱不在白名單內，Renderer 應主動拒絕解析，並降級為友善提示（例如：「此互動元件目前不支援，請使用標準流程」），而不是嘗試猜測並硬畫出來。
           </p>
 
-          <h2>05 / 第一個 prototype 怎麼選</h2>
+          <h2>06 / 生態想像：當 A2UI 遇上 MCP 與 Agent Teams</h2>
           <p>
-            選一個「agent 知道要問什麼，但 UI 的最佳組合會隨對話改變」的低風險 surface。例如旅遊偏好收集、客服案件補充資料，或依條件出現的預約表單。先準備 5 到 8 個 widget 的小 catalog，讓 agent 在明確範圍內組合。
+            A2UI 不只適用於單一 Chatbot，它為整個 AI 生態系打開了全新可能：
           </p>
-          <p>
-            不要從付款、刪除資料、調整權限開始。這些流程即使由固定 Flutter 畫面處理，也需要確認、冪等性與 server-side authorization；換成 A2UI 並不會減少這些要求。若確實要讓 agent 引導這類流程，就把它限制在蒐集資料與呈現確認頁，最後一步仍交給既有的受保護 action。
-          </p>
+          <ul>
+            <li>
+              <strong>MCP（Model Context Protocol）+ A2UI</strong>：目前的 MCP Server 多半只能回傳純文字或 raw 數據。若整合 A2UI，自訂的 MCP 工具（如資料庫查詢、伺服器監控）可直接回傳結構化 UI 描述，由客戶端原生渲染出互動圖表或操作面板。
+            </li>
+            <li>
+              <strong>Agent Teams 視覺化協作</strong>：在多 Agent 協作場景中，Code Review Agent 可以回傳原生 Diff 檢視器；Deploy Agent 可以回傳即時進度儀表板。
+            </li>
+            <li>
+              <strong>突破終端機限制</strong>：讓 Agent 從純 CLI 終端機與對話框，自然擴展為圖形化操作介面。
+            </li>
+          </ul>
 
-          <h2>06 / 本週可採取的行動</h2>
+          <h2>07 / 快速體驗與本週行動</h2>
+          <p>
+            想要親自體驗 A2UI 的運作？你可以直接 clone 官方專案跑起餐廳搜尋範例：
+          </p>
+          <pre><code>{`# 體驗官方 A2UI 餐廳搜尋 Demo
+git clone https://github.com/google/A2UI.git
+cd A2UI
+export GEMINI_API_KEY="your_api_key"
+
+cd samples/agent/adk/restaurant_finder
+uv run .`}</code></pre>
+
+          <p><strong>本週可帶回團隊的 3 個落地行動：</strong></p>
           <ol>
-            <li>挑一個低風險表單，寫下它需要的 component、props 與 action；先把它變成最小 catalog。</li>
-            <li>為 renderer 補四個測試：未知 component、錯誤 binding、不支援的 action，以及合法表單能正確回傳 action。</li>
-            <li>在 action 回送處記錄 catalog 版本、component ID 與拒絕原因，讓出問題時能重現而不是只看模型輸出。</li>
+            <li><strong>挑選低風險表單</strong>：找一個欄位常變動但出錯無重大損失的流程（如意見回饋、偏好收集），列出 5~8 個基礎元件作為最小 Catalog。</li>
+            <li><strong>實作安全邊界測試</strong>：為你的 Renderer 撰寫異常處理測試（未知 Component、錯誤資料綁定、非法 Action）。</li>
+            <li><strong>隔離副作用</strong>：確保所有 A2UI 觸發的敏感操作（扣款、刪除、授權）皆回到既有後端 API 進行身份驗證與冪等性檢查。</li>
           </ol>
 
           <h2>來源</h2>
           <ul className="sources">
             <li>
-              <a href="https://github.com/a2ui-project/a2ui" target="_blank" rel="noreferrer">
+              <a href="https://github.com/google/A2UI" target="_blank" rel="noreferrer">
                 A2UI 官方專案 ↗
               </a>
             </li>
