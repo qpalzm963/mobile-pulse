@@ -165,6 +165,23 @@ footer p:last-child{margin-left:auto}
 .article-body .quick-read li{font:400 14.5px/1.8 var(--sans);color:var(--ink);margin:0 0 8px;padding-left:4px}
 .article-body .quick-read li:last-child{margin-bottom:0}
 
+.article-body .a2ui-trace{margin:24px 0 30px;border:1px solid var(--rule);border-radius:4px;background:var(--card);padding:20px 22px}
+.article-body .a2ui-trace h3{font:600 18px/1.4 var(--sans);letter-spacing:-.01em;color:var(--ink);margin:6px 0 18px}
+.article-body .a2ui-trace ol{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0;padding:0}
+.article-body .a2ui-trace li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;margin:0;padding:14px;border:1px solid var(--rule);border-radius:4px;background:var(--wash)}
+.article-body .a2ui-trace-number{font:500 11px/1.5 var(--mono);letter-spacing:.08em;color:var(--accent)}
+.article-body .a2ui-trace h4{font:600 14px/1.4 var(--sans);letter-spacing:-.01em;color:var(--ink);margin:3px 0 6px}
+.article-body .a2ui-trace li p{font:400 13px/1.75 var(--sans);color:var(--ink);margin:0 0 8px}
+.article-body .a2ui-trace li .a2ui-trace-role{font:500 10px/1.5 var(--mono);letter-spacing:.08em;color:var(--accent);margin:0 0 3px;text-transform:uppercase}
+.article-body .a2ui-trace-handoff{display:block;font:400 10px/1.5 var(--mono);letter-spacing:.04em;color:var(--muted)}
+
+.article-body .control-boundary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:24px 0 30px}
+.article-body .control-boundary section{padding:18px;border:1px solid var(--rule);border-radius:4px;background:var(--card)}
+.article-body .control-boundary .control-boundary-agent{border-color:var(--warn);background:#fdf5f3}
+.article-body .control-boundary ul{margin:10px 0 0;padding-left:18px}
+.article-body .control-boundary li{font:400 13.5px/1.7 var(--sans);color:var(--ink);margin:0 0 8px;padding:0}
+.article-body .control-boundary li:last-child{margin-bottom:0}
+
 /* ── 窄螢幕 ───────────────────────────────────────────── */
 @media(max-width:900px){
   .site-header{padding:0 20px;gap:14px}
@@ -188,4 +205,7 @@ footer p:last-child{margin-left:auto}
   .article-body .hero-signals{gap:20px}
   .article-body .hero-signals dt{font-size:21px}
   .article-body .event-card{padding:18px}
+  .article-body .a2ui-trace{padding:18px}
+  .article-body .a2ui-trace ol,.article-body .control-boundary{grid-template-columns:1fr}
+  .article-body .a2ui-trace li{padding:13px}
 }

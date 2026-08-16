@@ -12,6 +12,22 @@ test("the initial weekly article is linked from the homepage data", async () => 
   assert.match(article, /Android Developers — Latest updates/);
 });
 
+test("the A2UI Flutter article is published with its teaching modules and official sources", async () => {
+  const articles = await readFile(new URL("data/articles.ts", root), "utf8");
+  const article = await readFile(
+    new URL("app/articles/a2ui-flutter-renderer/page.tsx", root),
+    "utf8"
+  );
+
+  assert.match(articles, /slug: "a2ui-flutter-renderer"/);
+  assert.match(article, /<A2uiTrace/);
+  assert.match(article, /<ControlBoundary/);
+  assert.match(article, /A2UI 官方專案/);
+  assert.match(article, /Flutter GenUI SDK/);
+  assert.match(article, /A2UI v0\.9 extension specification/);
+  assert.match(article, /<Feedback slug="a2ui-flutter-renderer"/);
+});
+
 test("feedback goes through the server endpoints, not local browser storage", async () => {
   const component = await readFile(new URL("components/Feedback.tsx", root), "utf8");
   // 回饋改為伺服器端匿名統計後，反應本身不再存在瀏覽器。localStorage 只用來

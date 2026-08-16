@@ -19,6 +19,14 @@ export const TAGS = [
 // 新的排前面：首頁照這個順序列出，最新一期要在最上面。
 export const ARTICLES: Article[] = [
   {
+    slug: "a2ui-flutter-renderer",
+    title: "一個表單怎麼從 agent 走進你的 Flutter App",
+    summary: "A2UI 讓 agent 描述介面，但 Flutter renderer 仍掌握 widget、事件與安全邊界。",
+    publishedAt: "2026.08.16",
+    tags: ["ai", "cross-platform", "engineering"],
+    href: "/articles/a2ui-flutter-renderer",
+  },
+  {
     slug: "ai-weekly-2026-08-14",
     title: "Agent 開始戳你的 API 了",
     summary: "這期三件事有一條共同線索：出問題的不是模型，是它們接上去的那些介面。",
