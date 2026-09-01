@@ -17,12 +17,12 @@ export async function GET(request: Request, { params }: Params) {
     const payload = await getPayload({ config });
     
     // Find media by id
-    let mediaDoc: any = null;
+    let mediaDoc: Record<string, unknown> | null = null;
     try {
-      mediaDoc = await payload.findByID({
+      mediaDoc = (await payload.findByID({
         collection: "media",
         id: Number(id) || id,
-      });
+      })) as unknown as Record<string, unknown> | null;
     } catch {
       // If by id fails, try finding by filename
       const found = await payload.find({
@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: Params) {
         },
         limit: 1,
       });
-      mediaDoc = found.docs[0] ?? null;
+      mediaDoc = (found.docs[0] as unknown as Record<string, unknown>) ?? null;
     }
 
     if (!mediaDoc) {
@@ -66,13 +66,13 @@ export async function GET(request: Request, { params }: Params) {
         : path.resolve(process.cwd(), process.env.MEDIA_DIR)
       : path.resolve(process.cwd(), "media");
 
-    const filePath = path.resolve(mediaDir, mediaDoc.filename);
+    const filePath = path.resolve(mediaDir, String(mediaDoc.filename || ""));
 
     if (existsSync(filePath)) {
       const fileBuffer = readFileSync(filePath);
       return new Response(fileBuffer, {
         headers: {
-          "Content-Type": mediaDoc.mimeType || "application/octet-stream",
+          "Content-Type": (mediaDoc.mimeType as string) || "application/octet-stream",
           "Content-Length": String(fileBuffer.length),
           "Cache-Control": "public, max-age=31536000, immutable",
         },
@@ -80,12 +80,12 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     // Fallback: If file not in mediaDir, check public/
-    const publicPath = path.resolve(process.cwd(), "public", mediaDoc.filename);
+    const publicPath = path.resolve(process.cwd(), "public", String(mediaDoc.filename || ""));
     if (existsSync(publicPath)) {
       const fileBuffer = readFileSync(publicPath);
       return new Response(fileBuffer, {
         headers: {
-          "Content-Type": mediaDoc.mimeType || "application/octet-stream",
+          "Content-Type": (mediaDoc.mimeType as string) || "application/octet-stream",
           "Content-Length": String(fileBuffer.length),
           "Cache-Control": "public, max-age=31536000, immutable",
         },
@@ -93,8 +93,9 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     return new Response(JSON.stringify({ error: "File not found on disk" }), { status: 404 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
     console.error("Failed to serve media:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: errorMsg }), { status: 500 });
   }
 }
