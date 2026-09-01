@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { reviewerToken, selectedText, textOffsetStart, textOffsetEnd, comment } = body as Record<string, any>;
+  const { reviewerToken, selectedText, textOffsetStart, textOffsetEnd, comment } = body as Record<string, unknown>;
 
   if (!reviewerToken || typeof reviewerToken !== "string" || reviewerToken.length < 8) {
     return new Response(JSON.stringify({ error: "Invalid reviewer token" }), { status: 400 });

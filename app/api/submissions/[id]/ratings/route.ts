@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { submissionRatings, submissions } from "../../../../../db/schema";
 import { readJson } from "../../../../../lib/request";
@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { reviewerToken, scoreDepth, scoreClarity, scorePracticality, generalFeedback } = body as Record<string, any>;
+  const { reviewerToken, scoreDepth, scoreClarity, scorePracticality, generalFeedback } = body as Record<string, unknown>;
 
   if (!reviewerToken || typeof reviewerToken !== "string" || reviewerToken.length < 8) {
     return new Response(JSON.stringify({ error: "Invalid reviewer token" }), { status: 400 });

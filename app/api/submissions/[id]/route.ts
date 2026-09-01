@@ -1,4 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
+import { getPayload } from "payload";
+import config from "@payload-config";
 import { getDb } from "../../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../../db/schema";
 import { readJson } from "../../../../lib/request";
@@ -103,12 +105,41 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { status, title, summary, contentMarkdown, tags, authorAlias } = body as Record<string, unknown>;
+  const { status, title, summary, contentMarkdown, coverImageId, tags, authorAlias } = body as Record<string, unknown>;
 
   // Unified validation for PATCH
   const validation = validateArticleInput({ title, summary, contentMarkdown }, { isPatch: true });
   if (!validation.isValid) {
     return new Response(JSON.stringify({ error: validation.error }), { status: 400 });
+  }
+
+  // Validate coverImageId exists in Media collection if provided
+  let validatedCoverImageId: string | null | undefined = undefined;
+  if (typeof coverImageId === "string") {
+    const trimmed = coverImageId.trim();
+    if (trimmed) {
+      try {
+        const payload = await getPayload({ config });
+        const mediaDoc = await payload.findByID({
+          collection: "media",
+          id: Number(trimmed) || trimmed,
+        });
+        if (!mediaDoc) {
+          return new Response(
+            JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+            { status: 400 }
+          );
+        }
+        validatedCoverImageId = String(mediaDoc.id);
+      } catch {
+        return new Response(
+          JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+          { status: 400 }
+        );
+      }
+    } else {
+      validatedCoverImageId = null;
+    }
   }
 
   const updateData: {
@@ -117,6 +148,7 @@ export async function PATCH(request: Request, { params }: Params) {
     title?: string;
     summary?: string;
     content?: string;
+    coverImageId?: string | null;
     authorAlias?: string;
     tags?: string;
   } = {
@@ -129,6 +161,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (typeof title === "string" && title.trim()) updateData.title = title.trim();
   if (typeof summary === "string" && summary.trim()) updateData.summary = summary.trim();
   if (typeof contentMarkdown === "string" && contentMarkdown.trim()) updateData.content = contentMarkdown.trim();
+  if (validatedCoverImageId !== undefined) updateData.coverImageId = validatedCoverImageId;
   if (typeof authorAlias === "string" && authorAlias.trim()) updateData.authorAlias = authorAlias.trim();
   if (Array.isArray(tags)) updateData.tags = JSON.stringify(tags);
 

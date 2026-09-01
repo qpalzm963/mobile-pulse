@@ -3,8 +3,56 @@ export interface ArticleInput {
   summary?: string;
   tags?: string[];
   contentMarkdown: string;
+  coverImageId?: string;
   authorAlias?: string;
   status?: "draft" | "reviewing" | "approved" | "published" | "rejected";
+}
+
+/**
+ * Inserts text into a document at a specified cursor position / selection range.
+ * If no range is specified, appends to the end of the text.
+ */
+export function insertTextAtCursor(
+  fullText: string,
+  textToInsert: string,
+  selectionStart?: number,
+  selectionEnd?: number
+): { newText: string; newCursorPos: number } {
+  if (
+    typeof selectionStart !== "number" ||
+    typeof selectionEnd !== "number" ||
+    selectionStart < 0 ||
+    selectionEnd < 0 ||
+    selectionStart > fullText.length
+  ) {
+    const newText = fullText ? `${fullText}\n\n${textToInsert}\n\n` : textToInsert;
+    return { newText, newCursorPos: newText.length };
+  }
+
+  const before = fullText.slice(0, selectionStart);
+  const after = fullText.slice(selectionEnd);
+
+  // Ensure clean newline boundaries
+  const prefix = before.length > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+  const suffix = after.length > 0 && !after.startsWith("\n\n") ? (after.startsWith("\n") ? "\n" : "\n\n") : "";
+
+  const insertion = `${prefix}${textToInsert}${suffix}`;
+  const newText = `${before}${insertion}${after}`;
+  const newCursorPos = before.length + insertion.length;
+
+  return { newText, newCursorPos };
+}
+
+/**
+ * Escapes quotes and backslashes in shortcode attribute values.
+ */
+export function escapeShortcodeAttr(value: string): string {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n]+/g, " ")
+    .trim();
 }
 
 /**

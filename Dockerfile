@@ -29,6 +29,7 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV DATABASE_FILE=/app/data/mobile-pulse.sqlite
 ENV PAYLOAD_DATABASE_FILE=/app/data/cms.sqlite
+ENV MEDIA_DIR=/app/media
 
 # 複製 Next.js standalone 產物與 runtime 依賴，runner 完全不需要安裝編譯器
 COPY --from=builder /app/.next/standalone ./
@@ -39,8 +40,8 @@ COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/package.json ./package.json
 
-# 建立持久化資料庫存放目錄
-RUN mkdir -p /app/data
+# 建立持久化資料庫與媒體存放目錄
+RUN mkdir -p /app/data /app/media
 
 EXPOSE 3000
 

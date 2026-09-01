@@ -93,6 +93,15 @@ export const Articles: CollectionConfig = {
       },
     },
     {
+      name: "coverImage",
+      type: "upload",
+      relationTo: "media",
+      label: "文章封面圖 (Cover Image)",
+      admin: {
+        position: "sidebar",
+      },
+    },
+    {
       name: "contentMarkdown",
       type: "textarea",
       label: "文章主體內容 (Markdown / 互動語法)",

@@ -65,6 +65,7 @@ export const submissions = sqliteTable("submissions", {
   summary: text("summary").notNull(),
   content: text("content").notNull(),
   authorAlias: text("author_alias").notNull().default("匿名組員"),
+  coverImageId: text("cover_image_id"),
   tags: text("tags").notNull().default("[]"),
   status: text("status", { enum: ["draft", "reviewing", "approved", "published", "rejected"] })
     .notNull()

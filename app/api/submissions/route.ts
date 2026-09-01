@@ -1,4 +1,6 @@
 import { sql } from "drizzle-orm";
+import { getPayload } from "payload";
+import config from "@payload-config";
 import { getDb } from "../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../db/schema";
 import { readJson } from "../../../lib/request";
@@ -18,6 +20,7 @@ export async function GET() {
         title: submissions.title,
         summary: submissions.summary,
         authorAlias: submissions.authorAlias,
+        coverImageId: submissions.coverImageId,
         tags: submissions.tags,
         status: submissions.status,
         createdAt: submissions.createdAt,
@@ -86,7 +89,7 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { title, summary, contentMarkdown, authorAlias, tags, status } = body as Record<string, unknown>;
+  const { title, summary, contentMarkdown, coverImageId, authorAlias, tags, status } = body as Record<string, unknown>;
 
   // Strict Validation: New submissions must provide contentMarkdown (arbitrary HTML via legacy 'content' is blocked)
   const validation = validateArticleInput({ title, summary, contentMarkdown });
@@ -104,6 +107,30 @@ export async function POST(request: Request) {
   }
   if (!finalSummary) {
     finalSummary = cleanTitle;
+  }
+
+  // Validate coverImageId exists in Media collection if provided
+  let validatedCoverImageId: string | null = null;
+  if (typeof coverImageId === "string" && coverImageId.trim()) {
+    try {
+      const payload = await getPayload({ config });
+      const mediaDoc = await payload.findByID({
+        collection: "media",
+        id: Number(coverImageId.trim()) || coverImageId.trim(),
+      });
+      if (!mediaDoc) {
+        return new Response(
+          JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+          { status: 400 }
+        );
+      }
+      validatedCoverImageId = String(mediaDoc.id);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+        { status: 400 }
+      );
+    }
   }
 
   const rawSlug = cleanTitle
@@ -124,6 +151,7 @@ export async function POST(request: Request) {
         title: cleanTitle,
         summary: finalSummary,
         content: rawContent,
+        coverImageId: validatedCoverImageId,
         authorAlias: typeof authorAlias === "string" && authorAlias.trim() ? authorAlias.trim() : "匿名組員",
         tags: Array.isArray(tags) ? JSON.stringify(tags) : "[]",
         status: status === "draft" ? "draft" : "reviewing",

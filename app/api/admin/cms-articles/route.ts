@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (status && status !== "all") {
       where.status = { equals: status };
     }
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const [articlesRes, tagsRes, stats] = await Promise.all([
       payload.find({
         collection: "articles",
-        where,
+        where: where as never,
         limit: 100,
         sort: "-updatedAt",
       }),
@@ -45,9 +45,9 @@ export async function GET(request: Request) {
     // Map stats by slug
     const statsMap = new Map(stats.map((s) => [s.slug, s]));
 
-    const enrichedArticles = articlesRes.docs.map((art: any) => ({
+    const enrichedArticles = articlesRes.docs.map((art: Record<string, unknown>) => ({
       ...art,
-      stats: statsMap.get(art.slug) || {
+      stats: statsMap.get(art.slug as string) || {
         views: 0,
         useful: 0,
         notUseful: 0,
@@ -62,8 +62,9 @@ export async function GET(request: Request) {
       tags: tagsRes.docs,
       stats,
     });
-  } catch (error: any) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }
 
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const payload = await getPayload({ config });
 
-    const created = await (payload.create as any)({
+    const created = await (payload.create as (args: unknown) => Promise<unknown>)({
       collection: "articles",
       data: {
         title: body.title,
@@ -90,8 +91,9 @@ export async function POST(request: Request) {
     });
 
     return Response.json({ success: true, article: created });
-  } catch (error: any) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }
 
@@ -105,15 +107,16 @@ export async function PATCH(request: Request) {
     }
 
     const payload = await getPayload({ config });
-    const updated = await (payload.update as any)({
+    const updated = await (payload.update as (args: unknown) => Promise<unknown>)({
       collection: "articles",
       id,
       data: updateData,
     });
 
     return Response.json({ success: true, article: updated });
-  } catch (error: any) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }
 
@@ -133,7 +136,8 @@ export async function DELETE(request: Request) {
     });
 
     return Response.json({ success: true });
-  } catch (error: any) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Internal server error";
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }

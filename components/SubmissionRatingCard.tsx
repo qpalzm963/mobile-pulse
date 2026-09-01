@@ -247,9 +247,9 @@ export function SubmissionRatingCard({
         {/* Section 01: Prior Knowledge Segmented Control */}
         <div style={{ marginBottom: "20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-            <label style={{ font: "700 12px var(--mono)", color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ font: "700 12px var(--mono)", color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               01 / 閱讀前對此主題的了解程度
-            </label>
+            </div>
             <span style={{ font: "400 11px var(--mono)", color: "var(--muted)" }}>
               PRIOR KNOWLEDGE LEVEL
             </span>

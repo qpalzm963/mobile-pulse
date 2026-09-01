@@ -2,26 +2,42 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TAGS } from "@/data/articles";
 import {
   MARKDOWN_AI_PROMPT_TEMPLATE,
   SAMPLE_MARKDOWN,
+  escapeShortcodeAttr,
   extractSummaryFromMarkdown,
+  insertTextAtCursor,
 } from "@/lib/content-markdown";
 import { RichMarkdownRenderer } from "@/components/RichMarkdownRenderer";
 
 export default function SubmitArticlePage() {
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [title, setTitle] = useState("攻克 Swift 6 嚴格並發：從編譯地獄到無競態架構的架構師避坑與重構指南");
   const [summary, setSummary] = useState("");
   const [authorAlias, setAuthorAlias] = useState("iOS 架構小組");
   const [selectedTags, setSelectedTags] = useState<string[]>(["ios", "engineering"]);
   const [content, setContent] = useState(SAMPLE_MARKDOWN);
+  const [coverImageId, setCoverImageId] = useState<string>("");
+  const [coverImageUrl, setCoverImageUrl] = useState<string>("");
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Image Upload Modal States
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [modalUploadError, setModalUploadError] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imageAltInput, setImageAltInput] = useState("");
+  const [imageCaptionInput, setImageCaptionInput] = useState("");
+  const [imageSizeInput, setImageSizeInput] = useState<"small" | "normal" | "wide" | "full">("normal");
+  const [isCoverModal, setIsCoverModal] = useState(false);
+  const [savedSelection, setSavedSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
   const toggleTag = (id: string) => {
     if (id === "all") return;
@@ -34,6 +50,88 @@ export default function SubmitArticlePage() {
     navigator.clipboard.writeText(MARKDOWN_AI_PROMPT_TEMPLATE);
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2500);
+  };
+
+  const handleOpenImageModal = (asCover: boolean = false) => {
+    setIsCoverModal(asCover);
+    if (!asCover && textareaRef.current) {
+      setSavedSelection({
+        start: textareaRef.current.selectionStart ?? content.length,
+        end: textareaRef.current.selectionEnd ?? content.length,
+      });
+    }
+    setSelectedImageFile(null);
+    setImageAltInput("");
+    setImageCaptionInput("");
+    setImageSizeInput("normal");
+    setModalUploadError(null);
+    setShowImageModal(true);
+  };
+
+  const handleUploadImage = async () => {
+    if (!selectedImageFile) {
+      setModalUploadError("請先選擇要上傳的圖片檔案！");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setModalUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedImageFile);
+      formData.append("alt", imageAltInput.trim() || selectedImageFile.name.replace(/\.[^/.]+$/, ""));
+      if (imageCaptionInput.trim()) {
+        formData.append("caption", imageCaptionInput.trim());
+      }
+
+      const res = await fetch("/api/media", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "圖片上傳失敗");
+      }
+
+      const media = data.media;
+
+      if (isCoverModal) {
+        // Set Cover Image
+        setCoverImageId(media.id);
+        setCoverImageUrl(media.url);
+      } else {
+        // Insert Shortcode into Markdown content at cursor position with escaped attributes
+        const escapedAlt = escapeShortcodeAttr(media.alt || "文章插圖");
+        const captionAttr = media.caption ? ` caption="${escapeShortcodeAttr(media.caption)}"` : "";
+        const sizeAttr = imageSizeInput !== "normal" ? ` size="${imageSizeInput}"` : "";
+        const shortcode = `:::image id="${media.id}" alt="${escapedAlt}"${captionAttr}${sizeAttr} :::`;
+        
+        const { newText, newCursorPos } = insertTextAtCursor(
+          content,
+          shortcode,
+          savedSelection.start,
+          savedSelection.end
+        );
+        setContent(newText);
+
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          }
+        }, 50);
+      }
+
+      setShowImageModal(false);
+      setSelectedImageFile(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "上傳失敗，請檢查檔案格式與大小。";
+      setModalUploadError(msg);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (targetStatus: "reviewing" | "draft") => {
@@ -53,6 +151,7 @@ export default function SubmitArticlePage() {
           title: title.trim(),
           summary: summary.trim(),
           contentMarkdown: content.trim(),
+          coverImageId: coverImageId || undefined,
           authorAlias: authorAlias.trim() || "匿名組員",
           tags: selectedTags,
           status: targetStatus,
@@ -339,13 +438,100 @@ export default function SubmitArticlePage() {
                 </div>
               </div>
 
-              {/* Markdown Textarea */}
+              {/* Cover Image Uploader */}
+              <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--rule)", borderRadius: "var(--radius-sm)", padding: "14px 18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <span style={{ font: "700 13px var(--sans)", color: "var(--ink)", display: "block" }}>
+                      文章封面圖 (Cover Image)
+                    </span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      {coverImageId ? `已設定封面 [Media ID: ${coverImageId}]` : "選填，用於首頁卡片、文章頂部大圖與社群分享"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenImageModal(true)}
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid var(--rule)",
+                        color: "var(--ink)",
+                        padding: "6px 14px",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: "12.5px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {coverImageId ? "🔄 更換封面圖" : "🖼️ 上傳封面圖"}
+                    </button>
+                    {coverImageId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCoverImageId("");
+                          setCoverImageUrl("");
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid #fecaca",
+                          color: "#dc2626",
+                          padding: "6px 10px",
+                          borderRadius: "var(--radius-sm)",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        移除
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {coverImageUrl && (
+                  <div style={{ marginTop: "12px" }}>
+                    <img
+                      src={coverImageUrl}
+                      alt="封面預覽"
+                      style={{ maxHeight: "160px", maxWidth: "100%", borderRadius: "6px", border: "1px solid var(--rule)" }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Markdown Editor & Image Insertion Toolbar */}
               <div style={{ marginTop: "10px" }}>
-                <label htmlFor="submit-content" style={{ display: "block", font: "700 13px var(--sans)", color: "var(--ink)", marginBottom: "6px" }}>
-                  Markdown 文章內容 *
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label htmlFor="submit-content" style={{ font: "700 13px var(--sans)", color: "var(--ink)" }}>
+                    Markdown 文章內容 *
+                  </label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenImageModal(false)}
+                      style={{
+                        background: "var(--accent-subtle)",
+                        border: "1px solid var(--accent-border)",
+                        color: "var(--accent)",
+                        padding: "5px 12px",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: "12.5px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      🖼️ 插入圖片 Shortcode
+                    </button>
+                  </div>
+                </div>
+
                 <textarea
                   id="submit-content"
+                  ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={20}
@@ -366,6 +552,207 @@ export default function SubmitArticlePage() {
                 />
               </div>
             </div>
+
+            {/* ── Image Upload Modal ────────────────────────────────────── */}
+            {showImageModal && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  background: "rgba(15, 23, 42, 0.6)",
+                  backdropFilter: "blur(4px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 9999,
+                  padding: "20px",
+                }}
+              >
+                <div
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--rule)",
+                    boxShadow: "var(--shadow-lg)",
+                    width: "100%",
+                    maxWidth: "520px",
+                    padding: "28px",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ margin: 0, fontSize: "17px", color: "var(--ink)" }}>
+                      {isCoverModal ? "🖼️ 上傳文章封面圖" : "🖼️ 上傳並插入圖片 Shortcode"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowImageModal(false)}
+                      style={{ background: "transparent", border: "none", fontSize: "16px", cursor: "pointer", color: "var(--muted)" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {modalUploadError && (
+                    <div
+                      style={{
+                        background: "var(--warn-subtle)",
+                        border: "1px solid var(--warn-border)",
+                        color: "var(--warn)",
+                        padding: "10px 14px",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: "13px",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      ⚠️ {modalUploadError}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {/* File Input */}
+                    <div>
+                      <label htmlFor="modal-image-file" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                        選擇圖片檔案 * (PNG, JPEG, WebP - 上限 10MB)
+                      </label>
+                      <input
+                        id="modal-image-file"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setSelectedImageFile(file);
+                          if (file && !imageAltInput) {
+                            setImageAltInput(file.name.replace(/\.[^/.]+$/, ""));
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px dashed var(--rule)",
+                          background: "var(--bg-subtle)",
+                          fontSize: "13px",
+                        }}
+                      />
+                    </div>
+
+                    {/* Alt Input */}
+                    <div>
+                      <label htmlFor="modal-image-alt" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                        無障礙替代文字 (Alt Text) *
+                      </label>
+                      <input
+                        id="modal-image-alt"
+                        type="text"
+                        value={imageAltInput}
+                        onChange={(e) => setImageAltInput(e.target.value)}
+                        placeholder="例如：Swift 6 靜態記憶體隔離架構圖"
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--rule)",
+                          fontSize: "13.5px",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {/* Caption Input */}
+                    <div>
+                      <label htmlFor="modal-image-caption" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                        圖片下方說明 (Caption，選填)
+                      </label>
+                      <input
+                        id="modal-image-caption"
+                        type="text"
+                        value={imageCaptionInput}
+                        onChange={(e) => setImageCaptionInput(e.target.value)}
+                        placeholder="例如：圖 1：隔離邊界示意"
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--rule)",
+                          fontSize: "13.5px",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {!isCoverModal && (
+                      <div>
+                        <div style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                          圖片顯示寬度 (Size Preset)
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                          {(["small", "normal", "wide", "full"] as const).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setImageSizeInput(s)}
+                              style={{
+                                padding: "6px 8px",
+                                borderRadius: "4px",
+                                border: `1px solid ${imageSizeInput === s ? "var(--accent)" : "var(--rule)"}`,
+                                background: imageSizeInput === s ? "var(--accent-subtle)" : "var(--bg-subtle)",
+                                color: imageSizeInput === s ? "var(--accent)" : "var(--ink)",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                textTransform: "capitalize",
+                              }}
+                            >
+                              {s === "small" ? "小 (420px)" : s === "normal" ? "標準 (680px)" : s === "wide" ? "寬 (900px)" : "全寬 (100%)"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "24px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowImageModal(false)}
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--rule)",
+                        background: "transparent",
+                        color: "var(--muted)",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUploadingImage || !selectedImageFile}
+                      onClick={handleUploadImage}
+                      style={{
+                        padding: "8px 20px",
+                        borderRadius: "var(--radius-sm)",
+                        border: "none",
+                        background: "var(--accent)",
+                        color: "#ffffff",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: isUploadingImage || !selectedImageFile ? "not-allowed" : "pointer",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      {isUploadingImage ? "上傳中..." : isCoverModal ? "確認設定為封面" : "上傳並插入 Shortcode 🚀"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </article>
         </div>
       )}
@@ -393,6 +780,11 @@ export default function SubmitArticlePage() {
                   <span key={t}>{t}</span>
                 ))}
               </div>
+              {coverImageUrl && (
+                <div style={{ marginTop: "20px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--rule)" }}>
+                  <img src={coverImageUrl} alt="文章封面" style={{ width: "100%", maxHeight: "380px", objectFit: "cover", display: "block" }} />
+                </div>
+              )}
             </div>
 
             {/* Live Rendered Markdown Article Body (Identical to Published Articles) */}

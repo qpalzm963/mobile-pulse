@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import "./story.css";
 
 const checkpoints = [["01", "盤點", "列出所有原生 plugin、SDK 與自訂 channel。"], ["02", "乾淨建置", "在沒有 Pods 與 DerivedData 的環境編譯。"], ["03", "實機驗證", "測登入、推播、付款與 release archive。"]];
 
 export default function FlutterUpgradePreview() {
   const [active, setActive] = useState(0);
-  return <main className="story-page"><header className="site-header article-nav"><a className="brand" href="/">MOBILE <i>PULSE</i></a><span className="story-status">ARTICLE PREVIEW · NOT PUBLISHED</span><a className="back-link" href="/">← 首頁</a></header><article>
+  return <main className="story-page"><header className="site-header article-nav"><Link className="brand" href="/">MOBILE <i>PULSE</i></Link><span className="story-status">ARTICLE PREVIEW · NOT PUBLISHED</span><Link className="back-link" href="/">← 首頁</Link></header><article>
     <section className="story-hero"><div className="story-kicker"><span>FLUTTER FIELD NOTE</span><span>2026.08.13</span><span>07 MIN</span></div><h1>升級 Flutter 3.44 前，<br/><em>別先按下更新。</em></h1><p className="story-dek">這不是 widget 更新；是一次 iOS 依賴鏈的健康檢查。先用三個關卡找出真正會讓 release 失敗的地方。</p><div className="signal-row"><div><b>3</b><span>個必經關卡</span></div><div><b>1</b><span>個核心變化</span></div><div><b>0</b><span>張制式流程圖</span></div></div></section>
     <section className="upgrade-board"><div className="board-copy"><p className="eyebrow">THE SHIFT</p><h2>CocoaPods <i>→</i> SwiftPM</h2><p>Flutter 3.44 將 Swift Package Manager 納入 iOS／macOS 的預設依賴管理方向。真正的風險不在 Dart，而在你既有 plugin、原生 SDK 與 CI 的接點。</p></div><div className="risk-map"><p>影響範圍</p><div className="risk-stack"><span className="risk-low">Dart UI<small>低</small></span><span className="risk-mid">Flutter plugin<small>中</small></span><span className="risk-high">原生 SDK / CI<small>高</small></span></div><p className="map-foot">越靠近原生建置層，越應先驗證。</p></div></section>
     <section className="story-body intro-block"><p className="lead">如果你的 App 有登入、推播、付款或自己寫的 platform channel，升級不能只看首頁能不能開。你需要驗證的是一條從 Flutter SDK 到 Xcode、再到 CI 的完整鏈路。</p></section>
@@ -15,6 +16,6 @@ export default function FlutterUpgradePreview() {
     <section className="story-body"><p className="eyebrow">WHAT TO DO WITH THE RESULT</p><h2>不要把「成功編譯」當成「可以發布」。</h2><p>當某個外掛仍未支援 SwiftPM，最好的選擇通常不是硬切，而是保留 CocoaPods 作為回退路徑。將 SDK 升級與依賴遷移拆成兩個 PR，讓失敗時可以快速定位責任邊界。</p></section>
     <section className="decision-card"><div><p className="eyebrow">DECISION SHORTCUT</p><h2>你現在該怎麼做？</h2></div><div className="decision-grid"><article><span className="dot green"/><h3>新 App</h3><p>先確認核心 plugin 後，直接採用 SwiftPM。</p></article><article><span className="dot amber"/><h3>成熟產品</h3><p>先升 SDK，保留現行依賴流程，再排遷移實驗。</p></article><article><span className="dot coral"/><h3>CI 不穩</h3><p>先建立乾淨建置基線，暫緩任何遷移。</p></article></div></section>
     <section className="story-body takeaways"><p className="eyebrow">TAKE IT TO THE TEAM</p><ol><li><b>用乾淨機器做一次 release build。</b><span>本機快取通常不會告訴你真相。</span></li><li><b>把原生能力列成可勾選的驗收清單。</b><span>首頁開得起來不代表推播與付款正常。</span></li><li><b>升級與遷移分開。</b><span>讓每個 PR 都有可理解、可回退的風險。</span></li></ol></section>
-    <section className="source-strip"><p>RESEARCH NOTES</p><a href="https://flutter.dev/blog/whats-new-in-flutter-3-44" target="_blank">Flutter 3.44 release overview ↗</a><a href="https://docs.flutter.dev/release/breaking-changes" target="_blank">Breaking changes ↗</a><a href="https://docs.flutter.dev/release/release-notes/release-notes-3.44.0" target="_blank">Release notes ↗</a></section>
+    <section className="source-strip"><p>RESEARCH NOTES</p><a href="https://flutter.dev/blog/whats-new-in-flutter-3-44" target="_blank" rel="noreferrer">Flutter 3.44 release overview ↗</a><a href="https://docs.flutter.dev/release/breaking-changes" target="_blank" rel="noreferrer">Breaking changes ↗</a><a href="https://docs.flutter.dev/release/release-notes/release-notes-3.44.0" target="_blank" rel="noreferrer">Release notes ↗</a></section>
   </article></main>;
 }
