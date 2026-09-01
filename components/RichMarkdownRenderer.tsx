@@ -1,5 +1,7 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
+import React from "react";
 import { A2uiLandscapeTable } from "./A2uiLandscapeTable";
 import { A2uiTrace } from "./A2uiTrace";
 import { AgentSandboxInteractive } from "./AgentSandboxInteractive";
@@ -14,6 +16,7 @@ interface Props {
 }
 
 // Registry for dynamic interactive components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const COMPONENT_REGISTRY: Record<string, React.ComponentType<any>> = {
   AgentSandboxInteractive,
   BrunoVsCloudComparison,
@@ -26,15 +29,32 @@ const COMPONENT_REGISTRY: Record<string, React.ComponentType<any>> = {
 };
 
 export function RichMarkdownRenderer({ content }: Props) {
-  // If content is an HTML snippet (starts with < or contains common HTML tags), render directly
-  const isHtml = /^\s*<[a-z]/i.test(content) || (content.includes("<p") && content.includes("</p>"));
+  if (!content) return null;
 
-  if (isHtml) {
+  // Migration & backward compatibility: If content is pure legacy HTML without markdown structures
+  // TODO(security): Legacy HTML fallback is strictly preserved for backward compatibility with existing internal articles.
+  // In upcoming issues, run a data migration script to convert all legacy articles into Markdown + Shortcode, and remove dangerouslySetInnerHTML.
+  const isPureLegacyHtml =
+    (content.trim().startsWith("<div") ||
+      content.trim().startsWith("<p class=") ||
+      content.trim().startsWith("<article")) &&
+    !content.includes("```") &&
+    !content.includes(":::") &&
+    !/^#{1,6}\s/m.test(content);
+
+  if (isPureLegacyHtml) {
+    // Basic sanitization to neutralize script tags or dangerous inline handlers
+    const sanitizedHtml = content
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
+      .replace(/on\w+\s*=\s*'[^']*'/gi, "")
+      .replace(/javascript\s*:/gi, "");
+
     return (
       <div
         className="rich-html-container article-rendered-html"
         style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--ink-body)" }}
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
       />
     );
   }
@@ -49,11 +69,32 @@ export function RichMarkdownRenderer({ content }: Props) {
 }
 
 interface Block {
-  type: "heading" | "paragraph" | "code" | "blockquote" | "terminal" | "compare" | "timeline" | "metric" | "callout" | "interactive";
+  type:
+    | "heading"
+    | "paragraph"
+    | "code"
+    | "blockquote"
+    | "ul"
+    | "ol"
+    | "hr"
+    | "table"
+    | "terminal"
+    | "compare"
+    | "timeline"
+    | "metric"
+    | "callout"
+    | "image"
+    | "interactive";
   level?: number;
   raw: string;
   meta?: Record<string, string>;
   lines?: string[];
+  items?: string[];
+  tableData?: {
+    headers: string[];
+    alignments: ("left" | "center" | "right")[];
+    rows: string[][];
+  };
 }
 
 function splitContentIntoBlocks(raw: string): Block[] {
@@ -70,12 +111,32 @@ function splitContentIntoBlocks(raw: string): Block[] {
       continue;
     }
 
-    // 1. Shortcode blocks: :::shortcode [params] ... :::
+    // 1. Shortcode blocks: :::shortcode [params] ... ::: or single-line :::shortcode [params] :::
     if (trimmed.startsWith(":::")) {
-      const match = trimmed.match(/^:::([a-zA-Z0-9_-]+)(?:\s+(.*))?$/);
-      if (match) {
-        const typeName = match[1].toLowerCase();
-        const rawParams = match[2] || "";
+      // Check for single-line shortcode: :::tag params :::
+      const singleLineMatch = trimmed.match(/^:::([a-zA-Z0-9_-]+)(?:\s+(.*?))?(?:\s*:::)$/);
+      if (singleLineMatch && trimmed !== ":::") {
+        const typeName = singleLineMatch[1].toLowerCase();
+        const rawParams = singleLineMatch[2] || "";
+        const meta = parseShortcodeParams(rawParams);
+        blocks.push({
+          type: typeName as Block["type"],
+          raw: "",
+          meta,
+          lines: [],
+        });
+        i++;
+        continue;
+      }
+
+      // Multiline shortcode block: :::tag params \n ... \n :::
+      const openMatch = trimmed.match(/^:::([a-zA-Z0-9_-]+)(?:\s+(.*))?$/);
+      if (openMatch) {
+        const typeName = openMatch[1].toLowerCase();
+        let rawParams = openMatch[2] || "";
+        if (rawParams.endsWith(":::")) {
+          rawParams = rawParams.slice(0, -3).trim();
+        }
         const meta = parseShortcodeParams(rawParams);
         const blockLines: string[] = [];
 
@@ -89,7 +150,7 @@ function splitContentIntoBlocks(raw: string): Block[] {
         }
 
         blocks.push({
-          type: typeName as any,
+          type: typeName as Block["type"],
           raw: blockLines.join("\n"),
           meta,
           lines: blockLines,
@@ -134,8 +195,20 @@ function splitContentIntoBlocks(raw: string): Block[] {
       i++;
       continue;
     }
+    if (trimmed.startsWith("#### ")) {
+      blocks.push({ type: "heading", level: 4, raw: trimmed.replace(/^####\s+/, "") });
+      i++;
+      continue;
+    }
 
-    // 4. Blockquote
+    // 4. Horizontal Rule
+    if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ type: "hr", raw: trimmed });
+      i++;
+      continue;
+    }
+
+    // 5. Blockquote
     if (trimmed.startsWith("> ")) {
       const quoteLines: string[] = [trimmed.replace(/^>\s*/, "")];
       i++;
@@ -147,7 +220,77 @@ function splitContentIntoBlocks(raw: string): Block[] {
       continue;
     }
 
-    // 5. Standard paragraph (accumulate until blank line or special block)
+    // 6. Unordered List (- or *)
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items: string[] = [trimmed.replace(/^[-*+]\s+/, "")];
+      i++;
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-*+]\s+/, ""));
+        i++;
+      }
+      blocks.push({ type: "ul", raw: "", items });
+      continue;
+    }
+
+    // 7. Ordered List (1. )
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [trimmed.replace(/^\d+\.\s+/, "")];
+      i++;
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+\.\s+/, ""));
+        i++;
+      }
+      blocks.push({ type: "ol", raw: "", items });
+      continue;
+    }
+
+    // 8. Markdown Table
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1].trim())
+    ) {
+      const headerLine = trimmed;
+      const delimiterLine = lines[i + 1].trim();
+
+      const parseRow = (str: string) => {
+        let clean = str.trim();
+        if (clean.startsWith("|")) clean = clean.slice(1);
+        if (clean.endsWith("|")) clean = clean.slice(0, -1);
+        return clean.split("|").map((cell) => cell.trim());
+      };
+
+      const headers = parseRow(headerLine);
+      const delimiterCells = parseRow(delimiterLine);
+
+      const alignments: ("left" | "center" | "right")[] = delimiterCells.map((cell) => {
+        const leftAlign = cell.startsWith(":");
+        const rightAlign = cell.endsWith(":");
+        if (leftAlign && rightAlign) return "center";
+        if (rightAlign) return "right";
+        return "left";
+      });
+
+      const tableRows: string[][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim() && lines[i].trim().includes("|")) {
+        tableRows.push(parseRow(lines[i]));
+        i++;
+      }
+
+      blocks.push({
+        type: "table",
+        raw: "",
+        tableData: {
+          headers,
+          alignments,
+          rows: tableRows,
+        },
+      });
+      continue;
+    }
+
+    // 9. Standard paragraph (accumulate until blank line or special block)
     const paraLines: string[] = [line];
     i++;
     while (
@@ -156,7 +299,11 @@ function splitContentIntoBlocks(raw: string): Block[] {
       !lines[i].trim().startsWith(":::") &&
       !lines[i].trim().startsWith("```") &&
       !lines[i].trim().startsWith("#") &&
-      !lines[i].trim().startsWith("> ")
+      !lines[i].trim().startsWith("> ") &&
+      !/^[-*+]\s+/.test(lines[i].trim()) &&
+      !/^\d+\.\s+/.test(lines[i].trim()) &&
+      !/^(\*{3,}|-{3,}|_{3,})$/.test(lines[i].trim()) &&
+      !(lines[i].trim().includes("|") && i + 1 < lines.length && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1].trim()))
     ) {
       paraLines.push(lines[i]);
       i++;
@@ -179,12 +326,136 @@ function parseShortcodeParams(paramStr: string): Record<string, string> {
   return result;
 }
 
+/**
+ * Parses inline Markdown: bold, italic, code, links, images
+ */
+function renderInline(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Split by inline markdown tokens
+  // Matches:
+  // 1. ![alt](url)
+  // 2. [text](url)
+  // 3. `code`
+  // 4. **bold** or __bold__
+  // 5. *italic* or _italic_
+  const parts: React.ReactNode[] = [];
+  const regex = /(!?\[[^\]]*\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  let keyIndex = 0;
+  while ((match = regex.exec(text)) !== null) {
+    const token = match[0];
+    const index = match.index;
+
+    if (index > lastIndex) {
+      parts.push(text.slice(lastIndex, index));
+    }
+
+    if (token.startsWith("![") && token.includes("](") && token.endsWith(")")) {
+      const altMatch = token.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      if (altMatch) {
+        parts.push(
+          <img
+            key={`img-${keyIndex++}`}
+            src={altMatch[2]}
+            alt={altMatch[1]}
+            style={{ maxWidth: "100%", borderRadius: "6px", display: "inline-block" }}
+          />
+        );
+      }
+    } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
+      const linkMatch = token.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (linkMatch) {
+        parts.push(
+          <a
+            key={`link-${keyIndex++}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "3px" }}
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      }
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      parts.push(
+        <code
+          key={`code-${keyIndex++}`}
+          style={{
+            fontFamily: "var(--mono)",
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--rule)",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontSize: "0.88em",
+            color: "var(--ink)",
+          }}
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else if (
+      (token.startsWith("**") && token.endsWith("**")) ||
+      (token.startsWith("__") && token.endsWith("__"))
+    ) {
+      parts.push(<strong key={`b-${keyIndex++}`}>{token.slice(2, -2)}</strong>);
+    } else if (
+      (token.startsWith("*") && token.endsWith("*")) ||
+      (token.startsWith("_") && token.endsWith("_"))
+    ) {
+      parts.push(<em key={`i-${keyIndex++}`}>{token.slice(1, -1)}</em>);
+    } else {
+      parts.push(token);
+    }
+
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length === 1 ? parts[0] : parts;
+}
+
 function renderBlock(block: Block, index: number): React.ReactNode {
   switch (block.type) {
     case "heading": {
-      if (block.level === 1) return <h1 key={index} style={{ margin: "36px 0 16px", color: "var(--ink)", fontSize: "28px" }}>{block.raw}</h1>;
-      if (block.level === 2) return <h2 key={index} style={{ margin: "32px 0 14px", color: "var(--ink)", fontSize: "22px", borderBottom: "1px solid var(--rule)", paddingBottom: "8px" }}>{block.raw}</h2>;
-      return <h3 key={index} style={{ margin: "24px 0 10px", color: "var(--ink)", fontSize: "18px" }}>{block.raw}</h3>;
+      if (block.level === 1)
+        return (
+          <h1 key={index} style={{ margin: "36px 0 16px", color: "var(--ink)", fontSize: "28px" }}>
+            {renderInline(block.raw)}
+          </h1>
+        );
+      if (block.level === 2)
+        return (
+          <h2
+            key={index}
+            style={{
+              margin: "36px 0 16px",
+              color: "var(--ink)",
+              fontSize: "22px",
+              borderBottom: "1px solid var(--rule)",
+              paddingBottom: "8px",
+            }}
+          >
+            {renderInline(block.raw)}
+          </h2>
+        );
+      if (block.level === 3)
+        return (
+          <h3 key={index} style={{ margin: "28px 0 12px", color: "var(--ink)", fontSize: "18px" }}>
+            {renderInline(block.raw)}
+          </h3>
+        );
+      return (
+        <h4 key={index} style={{ margin: "20px 0 10px", color: "var(--ink)", fontSize: "16px" }}>
+          {renderInline(block.raw)}
+        </h4>
+      );
     }
 
     case "blockquote":
@@ -195,36 +466,153 @@ function renderBlock(block: Block, index: number): React.ReactNode {
             borderLeft: "3px solid var(--accent)",
             background: "var(--accent-subtle)",
             padding: "14px 18px",
-            margin: "20px 0",
+            margin: "24px 0",
             borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
             color: "var(--ink)",
           }}
         >
-          <p style={{ margin: 0, fontSize: "15px", fontStyle: "italic" }}>{block.raw}</p>
+          <p style={{ margin: 0, fontSize: "15px", fontStyle: "italic", lineHeight: "1.7" }}>
+            {renderInline(block.raw)}
+          </p>
         </blockquote>
       );
 
-    case "code":
+    case "ul":
       return (
-        <pre
-          key={index}
-          style={{
-            background: "#0f172a",
-            color: "#f8fafc",
-            padding: "16px 20px",
-            borderRadius: "var(--radius-sm)",
-            fontFamily: "var(--mono)",
-            fontSize: "13px",
-            lineHeight: "1.6",
-            overflowX: "auto",
-            margin: "20px 0",
-          }}
-        >
-          <code>{block.raw}</code>
-        </pre>
+        <ul key={index} style={{ margin: "16px 0 20px", paddingLeft: "24px", lineHeight: "1.8" }}>
+          {block.items?.map((item, idx) => (
+            <li key={idx} style={{ marginBottom: "6px" }}>
+              {renderInline(item)}
+            </li>
+          ))}
+        </ul>
       );
 
-    // ── 短碼 1: Mac 終端機區塊 ──────────────────────────────
+    case "ol":
+      return (
+        <ol key={index} style={{ margin: "16px 0 20px", paddingLeft: "24px", lineHeight: "1.8" }}>
+          {block.items?.map((item, idx) => (
+            <li key={idx} style={{ marginBottom: "6px" }}>
+              {renderInline(item)}
+            </li>
+          ))}
+        </ol>
+      );
+
+    case "hr":
+      return (
+        <hr
+          key={index}
+          style={{
+            margin: "32px 0",
+            border: "none",
+            borderTop: "1px solid var(--rule)",
+          }}
+        />
+      );
+
+    case "table": {
+      const { headers = [], alignments = [], rows = [] } = block.tableData || {};
+      return (
+        <div key={index} className="rich-table-wrapper">
+          <table
+            className="rich-markdown-table"
+            style={{
+              borderCollapse: "collapse",
+              border: "1px solid var(--rule)",
+              borderRadius: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <thead>
+              <tr style={{ background: "var(--bg-subtle)", borderBottom: "2px solid var(--rule)" }}>
+                {headers.map((h, hIdx) => (
+                  <th
+                    key={hIdx}
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--ink)",
+                      textAlign: alignments[hIdx] || "left",
+                      borderRight: hIdx < headers.length - 1 ? "1px solid var(--rule)" : undefined,
+                    }}
+                  >
+                    {renderInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rIdx) => (
+                <tr
+                  key={rIdx}
+                  style={{
+                    borderBottom: rIdx < rows.length - 1 ? "1px solid var(--rule)" : undefined,
+                    background: rIdx % 2 === 1 ? "var(--bg-subtle)" : "#ffffff",
+                  }}
+                >
+                  {row.map((cell, cIdx) => (
+                    <td
+                      key={cIdx}
+                      style={{
+                        padding: "10px 14px",
+                        color: "var(--ink-body)",
+                        textAlign: alignments[cIdx] || "left",
+                        borderRight: cIdx < row.length - 1 ? "1px solid var(--rule)" : undefined,
+                      }}
+                    >
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case "code": {
+      const lang = block.meta?.lang;
+      return (
+        <div key={index} style={{ margin: "24px 0" }}>
+          {lang && (
+            <div
+              style={{
+                background: "#1e293b",
+                color: "#94a3b8",
+                padding: "4px 14px",
+                fontSize: "11px",
+                fontFamily: "var(--mono)",
+                borderTopLeftRadius: "var(--radius-sm)",
+                borderTopRightRadius: "var(--radius-sm)",
+                display: "inline-block",
+                textTransform: "uppercase",
+              }}
+            >
+              {lang}
+            </div>
+          )}
+          <pre
+            style={{
+              background: "#0f172a",
+              color: "#f8fafc",
+              padding: "16px 20px",
+              borderRadius: lang ? "0 var(--radius-sm) var(--radius-sm) var(--radius-sm)" : "var(--radius-sm)",
+              fontFamily: "var(--mono)",
+              fontSize: "13px",
+              lineHeight: "1.6",
+              overflowX: "auto",
+              margin: 0,
+            }}
+          >
+            <code>{block.raw}</code>
+          </pre>
+        </div>
+      );
+    }
+
+    // ── 短碼 1: 終端機區塊 (:::terminal) ──────────────────────────────
     case "terminal": {
       const title = block.meta?.title || "bash";
       return (
@@ -264,7 +652,7 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     }
 
-    // ── 短碼 2: 左右技術對比卡 ──────────────────────────────
+    // ── 短碼 2: 左右技術對比卡 (:::compare) ──────────────────────────────
     case "compare": {
       const beforeTitle = block.meta?.before || "Before (傳統做法)";
       const afterTitle = block.meta?.after || "After (推薦實務)";
@@ -286,11 +674,9 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return (
         <div
           key={index}
+          className="rich-compare-grid"
           style={{
             margin: "24px 0",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "16px",
           }}
         >
           {/* Before Column */}
@@ -300,7 +686,7 @@ function renderBlock(block: Block, index: number): React.ReactNode {
             </span>
             <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13.5px", color: "#991b1b", lineHeight: "1.6" }}>
               {beforeLines.map((line, liIdx) => (
-                <li key={liIdx}>{line.replace(/^-\s*/, "")}</li>
+                <li key={liIdx}>{renderInline(line.replace(/^-\s*/, ""))}</li>
               ))}
             </ul>
           </div>
@@ -312,7 +698,7 @@ function renderBlock(block: Block, index: number): React.ReactNode {
             </span>
             <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "13.5px", color: "var(--ink)", lineHeight: "1.6" }}>
               {afterLines.map((line, liIdx) => (
-                <li key={liIdx}>{line.replace(/^\+\s*/, "")}</li>
+                <li key={liIdx}>{renderInline(line.replace(/^\+\s*/, ""))}</li>
               ))}
             </ul>
           </div>
@@ -320,14 +706,14 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     }
 
-    // ── 短碼 3: 步驟時間軸 ──────────────────────────────
+    // ── 短碼 3: 步驟時間軸 (:::timeline) ──────────────────────────────
     case "timeline": {
       const items = (block.lines || []).filter((l) => l.trim());
       return (
         <div key={index} style={{ margin: "24px 0", paddingLeft: "12px", borderLeft: "2px solid var(--accent-border)" }}>
           {items.map((item, idx) => {
             const parts = item.split("::");
-            const stepTitle = parts[0]?.replace(/^-\s*/, "").trim();
+            const stepTitle = parts[0]?.replace(/^[-*+]\s*/, "").trim();
             const stepDesc = parts[1]?.trim() || "";
             return (
               <div key={idx} style={{ position: "relative", marginBottom: "16px", paddingLeft: "20px" }}>
@@ -343,8 +729,14 @@ function renderBlock(block: Block, index: number): React.ReactNode {
                     boxShadow: "0 0 0 3px #ffffff, 0 0 0 5px var(--accent-subtle)",
                   }}
                 />
-                <strong style={{ fontSize: "14.5px", color: "var(--ink)", display: "block" }}>{stepTitle}</strong>
-                {stepDesc && <p style={{ margin: "4px 0 0", fontSize: "13.5px", color: "var(--muted)" }}>{stepDesc}</p>}
+                <strong style={{ fontSize: "14.5px", color: "var(--ink)", display: "block" }}>
+                  {renderInline(stepTitle)}
+                </strong>
+                {stepDesc && (
+                  <p style={{ margin: "4px 0 0", fontSize: "13.5px", color: "var(--muted)" }}>
+                    {renderInline(stepDesc)}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -352,7 +744,7 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     }
 
-    // ── 短碼 4: 數據指標卡 ──────────────────────────────
+    // ── 短碼 4: 數據指標卡 (:::metric) ──────────────────────────────
     case "metric": {
       const value = block.meta?.value || "100%";
       const label = block.meta?.label || "指標說明";
@@ -381,11 +773,13 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     }
 
-    // ── 短碼 5: 提示 Callout ──────────────────────────────
+    // ── 短碼 5: 提示 Callout (:::callout) ──────────────────────────────
     case "callout": {
       const type = block.meta?.type || "info";
-      const borderColor = type === "danger" ? "#dc2626" : type === "warn" ? "#d97706" : "var(--accent)";
-      const bg = type === "danger" ? "#fef2f2" : type === "warn" ? "#fffbeb" : "var(--accent-subtle)";
+      const borderColor =
+        type === "danger" ? "#dc2626" : type === "warn" ? "#d97706" : type === "tip" ? "var(--success, #16a34a)" : "var(--accent)";
+      const bg =
+        type === "danger" ? "#fef2f2" : type === "warn" ? "#fffbeb" : type === "tip" ? "#f0fdf4" : "var(--accent-subtle)";
       return (
         <div
           key={index}
@@ -397,12 +791,78 @@ function renderBlock(block: Block, index: number): React.ReactNode {
             borderRadius: "0 6px 6px 0",
           }}
         >
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--ink)" }}>{block.raw}</p>
+          <p style={{ margin: 0, fontSize: "14px", color: "var(--ink)", lineHeight: "1.7" }}>
+            {renderInline(block.raw)}
+          </p>
         </div>
       );
     }
 
-    // ── 短碼 6: 動態 React 元件掛載 (方案 4) ──────────────────────────────
+    // ── 短碼 6: 圖片插圖 (:::image) ──────────────────────────────
+    case "image": {
+      const src = block.meta?.src || (block.meta?.id ? `/api/media/${block.meta.id}` : "");
+      const alt = block.meta?.alt || block.meta?.caption || "文章插圖";
+      const caption = block.meta?.caption;
+      const width = block.meta?.width || "100%";
+
+      return (
+        <figure
+          key={index}
+          style={{
+            margin: "28px 0",
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          {src ? (
+            <img
+              src={src}
+              alt={alt}
+              style={{
+                maxWidth: width,
+                maxHeight: "520px",
+                objectFit: "contain",
+                borderRadius: "8px",
+                border: "1px solid var(--rule)",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "600px",
+                padding: "36px 20px",
+                background: "var(--bg-subtle)",
+                border: "1px dashed var(--rule)",
+                borderRadius: "8px",
+                color: "var(--muted)",
+                fontSize: "13px",
+              }}
+            >
+              🖼️ [圖片 ID: {block.meta?.id || "未指定"}] {alt}
+            </div>
+          )}
+          {caption && (
+            <figcaption
+              style={{
+                marginTop: "10px",
+                fontSize: "13px",
+                color: "var(--muted)",
+                fontStyle: "italic",
+                lineHeight: "1.5",
+              }}
+            >
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
+
+    // ── 短碼 7: 動態 React 元件掛載 (:::interactive) ──────────────────────────────
     case "interactive": {
       const name = block.meta?.name || "";
       const Component = COMPONENT_REGISTRY[name];
@@ -416,11 +876,11 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     }
 
-    // Default Paragraph
+    // 預設段落
     default:
       return (
         <p key={index} style={{ margin: "0 0 18px", fontSize: "16px", lineHeight: "1.8", color: "var(--ink-body)" }}>
-          {block.raw}
+          {renderInline(block.raw)}
         </p>
       );
   }

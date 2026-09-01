@@ -12,7 +12,8 @@ interface SubmissionDetail {
   slug: string;
   title: string;
   summary: string;
-  content: string;
+  contentMarkdown: string;
+  content: string; // Deprecated alias
   authorAlias: string;
   tags: string[];
   status: "draft" | "reviewing" | "approved" | "published" | "rejected";
