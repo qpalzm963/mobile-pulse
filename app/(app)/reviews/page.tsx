@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface SubmissionItem {
-  id: number;
+  id: string | number;
   slug: string;
   title: string;
   summary: string;
   authorAlias: string;
   tags: string[];
-  status: "draft" | "reviewing" | "approved" | "published" | "rejected";
+  status: "draft" | "reviewing" | "changes_requested" | "approved" | "published" | "rejected";
   createdAt: string;
   ratingStats: {
     count: number;
@@ -46,10 +46,14 @@ export default function ReviewsLobbyPage() {
     switch (status) {
       case "reviewing":
         return <span style={{ background: "var(--accent-subtle)", color: "var(--accent)", border: "1px solid var(--accent-border)", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700 }}>🔍 同儕審評中</span>;
+      case "changes_requested":
+        return <span style={{ background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700 }}>⚠️ 需修改 / 退修</span>;
       case "approved":
         return <span style={{ background: "var(--success-subtle)", color: "var(--success)", border: "1px solid var(--success-border)", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700 }}>✓ 已審核採納</span>;
       case "published":
         return <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700 }}>🚀 已正式發布</span>;
+      case "rejected":
+        return <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700 }}>❌ 未採納 / 退稿</span>;
       case "draft":
         return <span style={{ background: "var(--bg-subtle)", color: "var(--muted)", border: "1px solid var(--rule)", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 600 }}>📝 草稿</span>;
       default:

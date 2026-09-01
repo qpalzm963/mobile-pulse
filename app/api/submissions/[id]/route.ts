@@ -1,92 +1,31 @@
-import { and, eq, sql } from "drizzle-orm";
-import { getPayload } from "payload";
-import config from "@payload-config";
-import { getDb } from "../../../../db";
-import { submissionAnnotations, submissionRatings, submissions } from "../../../../db/schema";
 import { readJson } from "../../../../lib/request";
-import { validateArticleInput } from "../../../../lib/content-markdown";
+import {
+  InvalidStatusTransitionError,
+  SubmissionService,
+  type SubmissionStatus,
+} from "../../../../lib/submissions";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
-  const subId = Number(id);
-  if (isNaN(subId) || subId <= 0) {
+  if (!id) {
     return new Response(JSON.stringify({ error: "Invalid submission id" }), { status: 400 });
   }
 
   const url = new URL(request.url);
-  const reviewerToken = request.headers.get("x-reviewer-token") || url.searchParams.get("reviewerToken");
+  const reviewerToken =
+    request.headers.get("x-reviewer-token") || url.searchParams.get("reviewerToken");
 
-  const db = getDb();
   try {
-    const rows = await db
-      .select()
-      .from(submissions)
-      .where(eq(submissions.id, subId))
-      .limit(1);
-
-    if (rows.length === 0) {
+    const sub = await SubmissionService.getSubmission(id, reviewerToken);
+    if (!sub) {
       return new Response(JSON.stringify({ error: "Submission not found" }), { status: 404 });
     }
 
-    const sub = rows[0];
-
-    // Ratings aggregate
-    const ratingSummary = await db
-      .select({
-        count: sql<number>`count(*)`,
-        avgDepth: sql<number>`round(avg(${submissionRatings.scoreDepth}), 1)`,
-        avgClarity: sql<number>`round(avg(${submissionRatings.scoreClarity}), 1)`,
-        avgPracticality: sql<number>`round(avg(${submissionRatings.scorePracticality}), 1)`,
-        overallAvg: sql<number>`round((avg(${submissionRatings.scoreDepth}) + avg(${submissionRatings.scoreClarity}) + avg(${submissionRatings.scorePracticality})) / 3.0, 1)`,
-      })
-      .from(submissionRatings)
-      .where(eq(submissionRatings.submissionId, subId));
-
-    // Current user's rating if reviewerToken provided
-    let myRating = null;
-    if (reviewerToken) {
-      const myRatingRows = await db
-        .select()
-        .from(submissionRatings)
-        .where(
-          and(
-            eq(submissionRatings.submissionId, subId),
-            eq(submissionRatings.reviewerToken, reviewerToken)
-          )
-        )
-        .limit(1);
-      myRating = myRatingRows[0] ?? null;
-    }
-
-    // All annotations
-    const annotations = await db
-      .select()
-      .from(submissionAnnotations)
-      .where(eq(submissionAnnotations.submissionId, subId))
-      .orderBy(submissionAnnotations.createdAt);
-
-    return Response.json(
-      {
-        ...sub,
-        contentMarkdown: sub.content,
-        content: sub.content, // Deprecated alias
-        tags: JSON.parse(sub.tags || "[]"),
-        ratingStats: ratingSummary[0] || {
-          count: 0,
-          avgDepth: 0,
-          avgClarity: 0,
-          avgPracticality: 0,
-          overallAvg: 0,
-        },
-        myRating,
-        annotations,
-      },
-      {
-        headers: { "cache-control": "no-store" },
-      }
-    );
+    return Response.json(sub, {
+      headers: { "cache-control": "no-store" },
+    });
   } catch (error) {
     console.error("Failed to get submission details:", error);
     return new Response(JSON.stringify({ error: "Database error" }), { status: 500 });
@@ -95,8 +34,7 @@ export async function GET(request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
-  const subId = Number(id);
-  if (isNaN(subId) || subId <= 0) {
+  if (!id) {
     return new Response(JSON.stringify({ error: "Invalid submission id" }), { status: 400 });
   }
 
@@ -105,85 +43,84 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { status, title, summary, contentMarkdown, coverImageId, tags, authorAlias } = body as Record<string, unknown>;
+  const {
+    action,
+    status,
+    title,
+    summary,
+    contentMarkdown,
+    coverImageId,
+    tags,
+    authorAlias,
+  } = body as Record<string, unknown>;
 
-  // Unified validation for PATCH
-  const validation = validateArticleInput({ title, summary, contentMarkdown }, { isPatch: true });
-  if (!validation.isValid) {
-    return new Response(JSON.stringify({ error: validation.error }), { status: 400 });
-  }
+  try {
+    // 1. If content fields are provided, update draft content
+    const hasContentUpdates =
+      title !== undefined ||
+      summary !== undefined ||
+      contentMarkdown !== undefined ||
+      coverImageId !== undefined ||
+      tags !== undefined ||
+      authorAlias !== undefined;
 
-  // Validate coverImageId exists in Media collection if provided
-  let validatedCoverImageId: string | null | undefined = undefined;
-  if (typeof coverImageId === "string") {
-    const trimmed = coverImageId.trim();
-    if (trimmed) {
-      try {
-        const payload = await getPayload({ config });
-        const mediaDoc = await payload.findByID({
-          collection: "media",
-          id: Number(trimmed) || trimmed,
-        });
-        if (!mediaDoc) {
-          return new Response(
-            JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
-            { status: 400 }
-          );
-        }
-        validatedCoverImageId = String(mediaDoc.id);
-      } catch {
+    if (hasContentUpdates) {
+      await SubmissionService.updateDraft(id, {
+        title: typeof title === "string" ? title : undefined,
+        summary: typeof summary === "string" ? summary : undefined,
+        contentMarkdown: typeof contentMarkdown === "string" ? contentMarkdown : undefined,
+        coverImageId: typeof coverImageId === "string" ? coverImageId : null,
+        tags: Array.isArray(tags) ? tags : undefined,
+        authorAlias: typeof authorAlias === "string" ? authorAlias : undefined,
+      });
+    }
+
+    // 2. Handle state transitions (either via explicit action or requested status)
+    let transitionTarget: SubmissionStatus | null = null;
+
+    if (action === "submit" || action === "submit_for_review") {
+      transitionTarget = "reviewing";
+    } else if (action === "request_changes") {
+      transitionTarget = "changes_requested";
+    } else if (action === "approve") {
+      transitionTarget = "approved";
+    } else if (action === "reject") {
+      transitionTarget = "rejected";
+    } else if (action === "publish") {
+      transitionTarget = "published";
+    } else if (typeof status === "string") {
+      transitionTarget = status as SubmissionStatus;
+    }
+
+    if (transitionTarget) {
+      if (transitionTarget === "reviewing") {
+        await SubmissionService.submitForReview(id);
+      } else if (transitionTarget === "changes_requested") {
+        await SubmissionService.requestChanges(id);
+      } else if (transitionTarget === "approved") {
+        await SubmissionService.approveSubmission(id);
+      } else if (transitionTarget === "rejected") {
+        await SubmissionService.rejectSubmission(id);
+      } else if (transitionTarget === "published") {
+        await SubmissionService.publishSubmission(id);
+      } else if (transitionTarget !== "draft") {
         return new Response(
-          JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+          JSON.stringify({ error: `Unsupported target status: ${transitionTarget}` }),
           { status: 400 }
         );
       }
-    } else {
-      validatedCoverImageId = null;
     }
-  }
 
-  const updateData: {
-    updatedAt: ReturnType<typeof sql>;
-    status?: "draft" | "reviewing" | "approved" | "published" | "rejected";
-    title?: string;
-    summary?: string;
-    content?: string;
-    coverImageId?: string | null;
-    authorAlias?: string;
-    tags?: string;
-  } = {
-    updatedAt: sql`CURRENT_TIMESTAMP`,
-  };
-
-  if (typeof status === "string" && ["draft", "reviewing", "approved", "published", "rejected"].includes(status)) {
-    updateData.status = status as "draft" | "reviewing" | "approved" | "published" | "rejected";
-  }
-  if (typeof title === "string" && title.trim()) updateData.title = title.trim();
-  if (typeof summary === "string" && summary.trim()) updateData.summary = summary.trim();
-  if (typeof contentMarkdown === "string" && contentMarkdown.trim()) updateData.content = contentMarkdown.trim();
-  if (validatedCoverImageId !== undefined) updateData.coverImageId = validatedCoverImageId;
-  if (typeof authorAlias === "string" && authorAlias.trim()) updateData.authorAlias = authorAlias.trim();
-  if (Array.isArray(tags)) updateData.tags = JSON.stringify(tags);
-
-  const db = getDb();
-  try {
-    const updated = await db
-      .update(submissions)
-      .set(updateData)
-      .where(eq(submissions.id, subId))
-      .returning();
-
-    const sub = updated[0];
+    const updated = await SubmissionService.getSubmission(id);
     return Response.json({
       success: true,
-      submission: {
-        ...sub,
-        contentMarkdown: sub.content,
-        content: sub.content, // Deprecated alias
-      },
+      submission: updated,
     });
   } catch (error) {
-    console.error("Failed to update submission:", error);
-    return new Response(JSON.stringify({ error: "Database error" }), { status: 500 });
+    if (error instanceof InvalidStatusTransitionError) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    }
+    const msg = error instanceof Error ? error.message : "Failed to update submission";
+    return new Response(JSON.stringify({ error: msg }), { status: 400 });
   }
 }
