@@ -1,10 +1,9 @@
-import React from "react";
 import { getPayload } from "payload";
 import config from "@payload-config";
 
 export async function DashboardOverview() {
-  let articles: any[] = [];
-  let tags: any[] = [];
+  let articles: Record<string, unknown>[] = [];
+  let tags: Record<string, unknown>[] = [];
   let userCount = 1;
 
   try {
@@ -14,8 +13,8 @@ export async function DashboardOverview() {
       payload.find({ collection: "tags", limit: 50 }),
       payload.find({ collection: "users", limit: 10 }),
     ]);
-    articles = articlesRes.docs;
-    tags = tagsRes.docs;
+    articles = articlesRes.docs as unknown as Record<string, unknown>[];
+    tags = tagsRes.docs as unknown as Record<string, unknown>[];
     userCount = usersRes.totalDocs || usersRes.docs.length || 1;
   } catch {
     // Fallback if payload isn't ready
@@ -249,7 +248,7 @@ function KanbanColumn({
 }: {
   title: string;
   count: number;
-  articles: any[];
+  articles: Record<string, unknown>[];
   accentColor: string;
   bgAccent: string;
   emptyText: string;
