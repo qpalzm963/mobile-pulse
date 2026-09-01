@@ -22,6 +22,13 @@
       "when": 1787210892836,
       "tag": "0002_clumsy_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787220000000,
+      "tag": "0003_add_cover_image_id",
+      "breakpoints": true
     }
   ]
 }

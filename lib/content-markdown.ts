@@ -9,6 +9,41 @@ export interface ArticleInput {
 }
 
 /**
+ * Inserts text into a document at a specified cursor position / selection range.
+ * If no range is specified, appends to the end of the text.
+ */
+export function insertTextAtCursor(
+  fullText: string,
+  textToInsert: string,
+  selectionStart?: number,
+  selectionEnd?: number
+): { newText: string; newCursorPos: number } {
+  if (
+    typeof selectionStart !== "number" ||
+    typeof selectionEnd !== "number" ||
+    selectionStart < 0 ||
+    selectionEnd < 0 ||
+    selectionStart > fullText.length
+  ) {
+    const newText = fullText ? `${fullText}\n\n${textToInsert}\n\n` : textToInsert;
+    return { newText, newCursorPos: newText.length };
+  }
+
+  const before = fullText.slice(0, selectionStart);
+  const after = fullText.slice(selectionEnd);
+
+  // Ensure clean newline boundaries
+  const prefix = before.length > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+  const suffix = after.length > 0 && !after.startsWith("\n\n") ? (after.startsWith("\n") ? "\n" : "\n\n") : "";
+
+  const insertion = `${prefix}${textToInsert}${suffix}`;
+  const newText = `${before}${insertion}${after}`;
+  const newCursorPos = before.length + insertion.length;
+
+  return { newText, newCursorPos };
+}
+
+/**
  * Extracts a concise plain-text summary from Markdown content.
  * Skips headings, code blocks, and custom shortcodes.
  */

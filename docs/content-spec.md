@@ -116,7 +116,8 @@ error: passing argument of non-sendable type 'UserProfile'
   - `src`: 圖片 URL（僅作為 legacy 舊格式或內部相容 fallback，新文章請一律使用 `id`）
 
 * 上傳規範：
-  - 支援格式：PNG, JPEG, WebP, GIF, SVG
+  - 支援格式：PNG, JPEG, WebP（第一版 MVP 鎖定無主動腳本風險之點陣格式）
+  - 驗證機制：伺服器驗證真實檔案二進位 Signature (Magic Bytes)
   - 單檔大小上限：10MB
   - 儲存位置：伺服器持久化儲存目錄 `/media`，對應 API 端點 `/api/media/:id`
 

@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TAGS } from "@/data/articles";
 import {
   MARKDOWN_AI_PROMPT_TEMPLATE,
   SAMPLE_MARKDOWN,
   extractSummaryFromMarkdown,
+  insertTextAtCursor,
 } from "@/lib/content-markdown";
 import { RichMarkdownRenderer } from "@/components/RichMarkdownRenderer";
 
 export default function SubmitArticlePage() {
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [title, setTitle] = useState("攻克 Swift 6 嚴格並發：從編譯地獄到無競態架構的架構師避坑與重構指南");
   const [summary, setSummary] = useState("");
   const [authorAlias, setAuthorAlias] = useState("iOS 架構小組");
@@ -34,6 +36,7 @@ export default function SubmitArticlePage() {
   const [imageCaptionInput, setImageCaptionInput] = useState("");
   const [imageSizeInput, setImageSizeInput] = useState<"small" | "normal" | "wide" | "full">("normal");
   const [isCoverModal, setIsCoverModal] = useState(false);
+  const [savedSelection, setSavedSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
   const toggleTag = (id: string) => {
     if (id === "all") return;
@@ -50,6 +53,12 @@ export default function SubmitArticlePage() {
 
   const handleOpenImageModal = (asCover: boolean = false) => {
     setIsCoverModal(asCover);
+    if (!asCover && textareaRef.current) {
+      setSavedSelection({
+        start: textareaRef.current.selectionStart ?? content.length,
+        end: textareaRef.current.selectionEnd ?? content.length,
+      });
+    }
     setSelectedImageFile(null);
     setImageAltInput("");
     setImageCaptionInput("");
@@ -92,11 +101,25 @@ export default function SubmitArticlePage() {
         setCoverImageId(media.id);
         setCoverImageUrl(media.url);
       } else {
-        // Insert Shortcode into Markdown content
+        // Insert Shortcode into Markdown content at cursor position
         const captionAttr = media.caption ? ` caption="${media.caption}"` : "";
         const sizeAttr = imageSizeInput !== "normal" ? ` size="${imageSizeInput}"` : "";
-        const shortcode = `\n\n:::image id="${media.id}" alt="${media.alt}"${captionAttr}${sizeAttr} :::\n\n`;
-        setContent((prev) => prev + shortcode);
+        const shortcode = `:::image id="${media.id}" alt="${media.alt}"${captionAttr}${sizeAttr} :::`;
+        
+        const { newText, newCursorPos } = insertTextAtCursor(
+          content,
+          shortcode,
+          savedSelection.start,
+          savedSelection.end
+        );
+        setContent(newText);
+
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          }
+        }, 50);
       }
 
       setShowImageModal(false);
@@ -506,6 +529,7 @@ export default function SubmitArticlePage() {
 
                 <textarea
                   id="submit-content"
+                  ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={20}

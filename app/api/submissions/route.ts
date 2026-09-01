@@ -1,4 +1,6 @@
 import { sql } from "drizzle-orm";
+import { getPayload } from "payload";
+import config from "@payload-config";
 import { getDb } from "../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../db/schema";
 import { readJson } from "../../../lib/request";
@@ -107,6 +109,30 @@ export async function POST(request: Request) {
     finalSummary = cleanTitle;
   }
 
+  // Validate coverImageId exists in Media collection if provided
+  let validatedCoverImageId: string | null = null;
+  if (typeof coverImageId === "string" && coverImageId.trim()) {
+    try {
+      const payload = await getPayload({ config });
+      const mediaDoc = await payload.findByID({
+        collection: "media",
+        id: Number(coverImageId.trim()) || coverImageId.trim(),
+      });
+      if (!mediaDoc) {
+        return new Response(
+          JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+          { status: 400 }
+        );
+      }
+      validatedCoverImageId = String(mediaDoc.id);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: `Referenced coverImageId "${coverImageId}" does not exist in Media collection` }),
+        { status: 400 }
+      );
+    }
+  }
+
   const rawSlug = cleanTitle
     .toLowerCase()
     .trim()
@@ -125,7 +151,7 @@ export async function POST(request: Request) {
         title: cleanTitle,
         summary: finalSummary,
         content: rawContent,
-        coverImageId: typeof coverImageId === "string" && coverImageId.trim() ? coverImageId.trim() : null,
+        coverImageId: validatedCoverImageId,
         authorAlias: typeof authorAlias === "string" && authorAlias.trim() ? authorAlias.trim() : "匿名組員",
         tags: Array.isArray(tags) ? JSON.stringify(tags) : "[]",
         status: status === "draft" ? "draft" : "reviewing",

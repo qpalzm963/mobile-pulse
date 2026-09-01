@@ -29,8 +29,6 @@ export const Media: CollectionConfig = {
       "image/png",
       "image/jpeg",
       "image/webp",
-      "image/gif",
-      "image/svg+xml",
     ],
   },
   fields: [
