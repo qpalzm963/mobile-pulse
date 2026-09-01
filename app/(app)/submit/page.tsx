@@ -614,12 +614,13 @@ export default function SubmitArticlePage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     {/* File Input */}
                     <div>
-                      <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
-                        選擇圖片檔案 * (PNG, JPEG, WebP, GIF, SVG - 上限 10MB)
+                      <label htmlFor="modal-image-file" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                        選擇圖片檔案 * (PNG, JPEG, WebP - 上限 10MB)
                       </label>
                       <input
+                        id="modal-image-file"
                         type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                        accept="image/png,image/jpeg,image/webp"
                         onChange={(e) => {
                           const file = e.target.files?.[0] || null;
                           setSelectedImageFile(file);
@@ -640,10 +641,11 @@ export default function SubmitArticlePage() {
 
                     {/* Alt Input */}
                     <div>
-                      <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                      <label htmlFor="modal-image-alt" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                         無障礙替代文字 (Alt Text) *
                       </label>
                       <input
+                        id="modal-image-alt"
                         type="text"
                         value={imageAltInput}
                         onChange={(e) => setImageAltInput(e.target.value)}
@@ -661,10 +663,11 @@ export default function SubmitArticlePage() {
 
                     {/* Caption Input */}
                     <div>
-                      <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                      <label htmlFor="modal-image-caption" style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                         圖片下方說明 (Caption，選填)
                       </label>
                       <input
+                        id="modal-image-caption"
                         type="text"
                         value={imageCaptionInput}
                         onChange={(e) => setImageCaptionInput(e.target.value)}
@@ -682,9 +685,9 @@ export default function SubmitArticlePage() {
 
                     {!isCoverModal && (
                       <div>
-                        <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
+                        <div style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                           圖片顯示寬度 (Size Preset)
-                        </label>
+                        </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
                           {(["small", "normal", "wide", "full"] as const).map((s) => (
                             <button
