@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getPayload } from "payload";
 import config from "@payload-config";
 
@@ -82,7 +83,7 @@ export async function DashboardOverview() {
 
           {/* Action Toolbar */}
           <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-            <a
+            <Link
               href="/admin/collections/articles/create"
               style={{
                 display: "inline-flex",
@@ -100,7 +101,7 @@ export async function DashboardOverview() {
               }}
             >
               <span>✍️ 撰寫新文章</span>
-            </a>
+            </Link>
             <a
               href="/"
               target="_blank"
@@ -309,9 +310,9 @@ function KanbanColumn({
           </div>
         ) : (
           articles.map((article) => (
-            <a
-              key={article.id}
-              href={`/admin/collections/articles/${article.id}`}
+            <Link
+              key={article.id as string}
+              href={`/admin/collections/articles/${article.id as string}`}
               style={{
                 display: "block",
                 background: "#11192d",
@@ -324,7 +325,7 @@ function KanbanColumn({
               }}
             >
               <div style={{ fontSize: "13px", fontWeight: "700", color: "#f1f5f9", marginBottom: "6px", lineHeight: "1.4" }}>
-                {article.title}
+                {article.title as string}
               </div>
               <div
                 style={{
@@ -338,13 +339,13 @@ function KanbanColumn({
                   marginBottom: "8px",
                 }}
               >
-                {article.summary}
+                {article.summary as string}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748b" }}>
-                <span>{article.publishedAt || "近期"}</span>
-                <span style={{ fontFamily: "ui-monospace, monospace", color: "#38bdf8" }}>/{article.slug}</span>
+                <span>{(article.publishedAt as string) || "近期"}</span>
+                <span style={{ fontFamily: "ui-monospace, monospace", color: "#38bdf8" }}>/{article.slug as string}</span>
               </div>
-            </a>
+            </Link>
           ))
         )}
       </div>
