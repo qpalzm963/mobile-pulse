@@ -4,7 +4,27 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPayload } from "payload";
 import payloadConfig from "../payload.config";
-import { ARTICLES, TAGS } from "../data/articles";
+import { TAGS } from "../data/articles";
+import { SEED_ARTICLES } from "../data/seed-articles";
+
+function toIsoDate(dateVal: unknown): string {
+  if (!dateVal) return new Date().toISOString();
+  if (typeof dateVal === "string") {
+    const direct = new Date(dateVal);
+    if (!isNaN(direct.getTime())) {
+      return direct.toISOString();
+    }
+    const formatted = dateVal.replace(/\./g, "-");
+    const parsed = new Date(formatted);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    return dateVal.toISOString();
+  }
+  return new Date().toISOString();
+}
 
 // Ensure local storage directories exist
 mkdirSync(resolve(".data"), { recursive: true });
@@ -22,41 +42,72 @@ const { getDb, openDbForMigration } = await import("../db");
 // 用 openDbForMigration 而非 getDb：後者會檢查資料表存在，而此刻還沒建。
 migrate(openDbForMigration(), { migrationsFolder: "./drizzle" });
 
-// Seed Payload tags and articles if empty
+// Seed / Sync Payload tags and seed articles
 const payload = await getPayload({ config: payloadConfig });
-const tagCount = await payload.count({ collection: "tags" });
-if (tagCount.totalDocs === 0) {
-  const tagMap = new Map<string, number | string>();
-  for (const tag of TAGS) {
-    if (tag.id === "all") continue;
+const tagMap = new Map<string, number | string>();
+
+for (const tag of TAGS) {
+  if (tag.id === "all") continue;
+  const existing = await payload.find({
+    collection: "tags",
+    where: { tagId: { equals: tag.id } },
+    limit: 1,
+  });
+
+  if (existing.docs.length > 0) {
+    tagMap.set(tag.id, existing.docs[0].id);
+  } else {
     const created = await payload.create({
       collection: "tags",
       data: { tagId: tag.id, name: tag.label },
     });
     tagMap.set(tag.id, created.id);
   }
+}
 
-  const artCount = await payload.count({ collection: "articles" });
-  if (artCount.totalDocs === 0) {
-    for (const art of ARTICLES) {
-      const tagIds = art.tags.map((t) => tagMap.get(t)).filter(Boolean) as (number | string)[];
-      await payload.create({
-        collection: "articles",
-        data: {
-          title: art.title,
-          slug: art.slug,
-          summary: art.summary,
-          eyebrow: art.eyebrow,
-          author: art.author,
-          readTime: art.readTime,
-          publishedAt: art.publishedAt,
-          status: "published",
-          interactiveComponent: art.interactiveComponent,
-          tags: tagIds,
-          contentMarkdown: `# ${art.title}\n\n${art.summary}`,
-        },
-      });
-    }
+for (const art of SEED_ARTICLES) {
+  const existing = await payload.find({
+    collection: "articles",
+    where: { slug: { equals: art.slug } },
+    limit: 1,
+  });
+
+  const tagIds = art.tags.map((t) => tagMap.get(t)).filter(Boolean) as (number | string)[];
+  const isoDate = toIsoDate(art.publishedAt);
+
+  if (existing.docs.length > 0) {
+    const doc = existing.docs[0];
+    await payload.update({
+      collection: "articles",
+      id: doc.id,
+      data: {
+        title: art.title,
+        summary: art.summary,
+        eyebrow: art.eyebrow,
+        author: art.author || "MOBILE PULSE 編輯部",
+        readTime: art.readTime || "5 MIN READ",
+        publishedAt: isoDate,
+        status: "published",
+        tags: tagIds,
+        contentMarkdown: art.contentMarkdown,
+      },
+    });
+  } else {
+    await payload.create({
+      collection: "articles",
+      data: {
+        title: art.title,
+        slug: art.slug,
+        summary: art.summary,
+        eyebrow: art.eyebrow,
+        author: art.author || "MOBILE PULSE 編輯部",
+        readTime: art.readTime || "5 MIN READ",
+        publishedAt: isoDate,
+        status: "published",
+        tags: tagIds,
+        contentMarkdown: art.contentMarkdown,
+      },
+    });
   }
 }
 

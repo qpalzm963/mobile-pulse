@@ -1,4 +1,4 @@
-import { isKnownSlug } from "../../../../../data/articles";
+import { isPublishedArticleSlug } from "@/lib/articles";
 import { getDb } from "../../../../../db";
 import { articleViews } from "../../../../../db/schema";
 import { readJson, readVisitorId, utcDay } from "../../../../../lib/request";
@@ -13,7 +13,7 @@ type Params = { params: Promise<{ slug: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   const { slug } = await params;
-  if (!isKnownSlug(slug)) {
+  if (!slug || !(await isPublishedArticleSlug(slug))) {
     return new Response(null, { status: 400 });
   }
 

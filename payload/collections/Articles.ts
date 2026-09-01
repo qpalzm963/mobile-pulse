@@ -68,10 +68,13 @@ export const Articles: CollectionConfig = {
     },
     {
       name: "publishedAt",
-      type: "text",
-      label: "發布日期 (例如：2026.08.20)",
+      type: "date",
+      label: "發布日期",
       admin: {
         position: "sidebar",
+        date: {
+          pickerAppearance: "dayAndTime",
+        },
       },
     },
     {

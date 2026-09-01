@@ -1,3 +1,10 @@
+/**
+ * @deprecated
+ * 注意：自 Issue #5 起，Payload CMS (payload/collections/Articles.ts) 為公開 Article 的唯一 Source of Truth。
+ * 本檔案僅保留作為 Initial Seed / 靜態 fallback 與型別相容性支援。
+ * 公開查詢請使用 @/lib/articles 的 listPublishedArticles() 與 getPublishedArticleBySlug()。
+ */
+
 export type Article = {
   slug: string;
   title: string;
@@ -16,7 +23,9 @@ export const TAGS = [
   { id: "engineering", label: "工程實務" },
 ];
 
-// 新的排前面：首頁照這個順序列出，最新一期要在最上面。
+/**
+ * @deprecated 請改由 Payload CMS 動態取得已發布文章列表。
+ */
 export const ARTICLES: Article[] = [
   {
     slug: "ai-agent-security-sandbox-audit",
@@ -55,8 +64,7 @@ export const ARTICLES: Article[] = [
 const SLUGS = new Set([...ARTICLES.map((article) => article.slug), "ai-pulse-latest"]);
 
 /**
- * 統計 API 的 slug 白名單。未經此檢查，任意字串都能在 article_views 建立
- * 資料列，資料表會無上限成長。
+ * @deprecated 請使用 @/lib/articles 的 isPublishedArticleSlug(slug) 進行非同步驗證。
  */
 export function isKnownSlug(slug: string): boolean {
   return SLUGS.has(slug);

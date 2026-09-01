@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { ArticleDirectory } from "@/components/ArticleDirectory";
 import { AiPulseFeaturedSection } from "@/components/AiPulseFeaturedSection";
+import { getHomePageData } from "@/lib/articles";
 
-export default function Home() {
+export const revalidate = 60;
+
+export default async function Home() {
+  const { articles, tags } = await getHomePageData();
+
   return (
     <main>
       <header className="site-header">
@@ -59,7 +64,7 @@ export default function Home() {
         </div>
       </header>
 
-      <ArticleDirectory>
+      <ArticleDirectory articles={articles} tags={tags}>
         <div className="lede">
           <p className="eyebrow">App development field notes</p>
           <h1>整理訊號，留給真正要交付產品的人</h1>
