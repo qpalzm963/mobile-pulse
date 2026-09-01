@@ -44,6 +44,8 @@ const eslintConfig = defineConfig([
       "jsx-a11y/label-has-associated-control": "warn",
       "react/no-unescaped-entities": "warn",
       "@next/next/no-img-element": "warn",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 ]);

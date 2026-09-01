@@ -1,5 +1,3 @@
-import React from "react";
-
 export function AdminLogo() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0" }}>

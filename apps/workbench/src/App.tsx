@@ -103,7 +103,29 @@ export function App() {
   };
 
   useEffect(() => {
-    loadData();
+    let ignore = false;
+    const init = async () => {
+      try {
+        setLoading(true);
+        const res = await client.getArticles();
+        if (!ignore) {
+          setArticles(res.articles || []);
+          setTags(res.tags || []);
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          notify(`資料載入失敗: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+    init();
+    return () => {
+      ignore = true;
+    };
   }, [client]);
 
   useEffect(() => {
