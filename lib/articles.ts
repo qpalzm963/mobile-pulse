@@ -41,6 +41,35 @@ export interface TagItem {
   count?: number;
 }
 
+export interface ListArticlesOptions {
+  limit?: number;
+  page?: number;
+}
+
+export function formatDisplayDate(dateVal: unknown): string {
+  if (!dateVal) return "近期發布";
+  if (typeof dateVal === "string") {
+    // If it's already "2026.08.20"
+    if (/^\d{4}\.\d{2}\.\d{2}$/.test(dateVal)) return dateVal;
+    // If it's "2026-08-20" or ISO
+    const parsed = new Date(dateVal);
+    if (!isNaN(parsed.getTime())) {
+      const yyyy = parsed.getUTCFullYear();
+      const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(parsed.getUTCDate()).padStart(2, "0");
+      return `${yyyy}.${mm}.${dd}`;
+    }
+    return dateVal;
+  }
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    const yyyy = dateVal.getUTCFullYear();
+    const mm = String(dateVal.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(dateVal.getUTCDate()).padStart(2, "0");
+    return `${yyyy}.${mm}.${dd}`;
+  }
+  return "近期發布";
+}
+
 function mapArticleSummary(doc: Record<string, unknown>): PublishedArticleSummary {
   const tagItems: ArticleTag[] = [];
   const tags: string[] = [];
@@ -88,7 +117,7 @@ function mapArticleSummary(doc: Record<string, unknown>): PublishedArticleSummar
     eyebrow: (doc.eyebrow as string) || null,
     author: (doc.author as string) || "MOBILE PULSE 編輯部",
     readTime: (doc.readTime as string) || "5 MIN READ",
-    publishedAt: (doc.publishedAt as string) || "近期發布",
+    publishedAt: formatDisplayDate(doc.publishedAt),
     tags,
     tagItems,
     coverImage,
@@ -105,73 +134,67 @@ function mapArticleDetail(doc: Record<string, unknown>): PublishedArticleDetail 
   };
 }
 
-function normalizeDate(dateStr: string): number {
-  if (!dateStr) return 0;
-  const formatted = dateStr.replace(/\./g, "-");
-  const time = Date.parse(formatted);
-  return isNaN(time) ? 0 : time;
-}
-
-export async function listPublishedArticles(): Promise<PublishedArticleSummary[]> {
-  try {
-    const payload = await getPayload({ config });
-    const result = await payload.find({
-      collection: "articles",
-      where: {
-        status: {
-          equals: "published",
-        },
+/**
+ * 取得所有已發布文章列表。
+ * 僅查詢 status = 'published'，依 publishedAt 降序排列。
+ * 若資料庫或 CMS 發生錯誤，將錯誤拋出由上層 Error Boundary 處理，避免誤將連線錯誤當作空文章。
+ */
+export async function listPublishedArticles(
+  options?: ListArticlesOptions
+): Promise<PublishedArticleSummary[]> {
+  const payload = await getPayload({ config });
+  const result = await payload.find({
+    collection: "articles",
+    where: {
+      status: {
+        equals: "published",
       },
-      depth: 2,
-      limit: 200,
-      sort: "-publishedAt",
-    });
+    },
+    depth: 2,
+    limit: options?.limit ?? 0, // 0 = no limit in Payload CMS
+    page: options?.page,
+    sort: "-publishedAt",
+  });
 
-    const articles: PublishedArticleSummary[] = result.docs.map((doc) =>
-      mapArticleSummary(doc as unknown as Record<string, unknown>)
-    );
-
-    articles.sort((a, b) => {
-      const dateA = normalizeDate(a.publishedAt);
-      const dateB = normalizeDate(b.publishedAt);
-      return dateB - dateA;
-    });
-
-    return articles;
-  } catch (error) {
-    console.error("Failed to list published articles:", error);
-    return [];
-  }
+  return result.docs.map((doc) =>
+    mapArticleSummary(doc as unknown as Record<string, unknown>)
+  );
 }
 
-export async function getPublishedArticleBySlug(slug: string): Promise<PublishedArticleDetail | null> {
+/**
+ * 依 slug 取得單篇已發布文章。
+ * 若查無文章或狀態非 published，回傳 null（由路由觸發 notFound() 404）。
+ * 若資料庫連線中斷或查詢錯誤，將錯誤拋出。
+ */
+export async function getPublishedArticleBySlug(
+  slug: string
+): Promise<PublishedArticleDetail | null> {
   if (!slug || typeof slug !== "string") return null;
-  try {
-    const payload = await getPayload({ config });
-    const result = await payload.find({
-      collection: "articles",
-      where: {
-        and: [
-          { slug: { equals: slug.trim() } },
-          { status: { equals: "published" } },
-        ],
-      },
-      depth: 2,
-      limit: 1,
-    });
 
-    if (result.docs.length === 0) {
-      return null;
-    }
+  const payload = await getPayload({ config });
+  const result = await payload.find({
+    collection: "articles",
+    where: {
+      and: [
+        { slug: { equals: slug.trim() } },
+        { status: { equals: "published" } },
+      ],
+    },
+    depth: 2,
+    limit: 1,
+  });
 
-    const doc = result.docs[0];
-    return mapArticleDetail(doc as unknown as Record<string, unknown>);
-  } catch (error) {
-    console.error(`Failed to get published article for slug "${slug}":`, error);
+  if (result.docs.length === 0) {
     return null;
   }
+
+  const doc = result.docs[0];
+  return mapArticleDetail(doc as unknown as Record<string, unknown>);
 }
 
+/**
+ * 動態檢查 slug 是否為已發布文章。
+ */
 export async function isPublishedArticleSlug(slug: string): Promise<boolean> {
   if (!slug || typeof slug !== "string") return false;
   try {
@@ -193,41 +216,54 @@ export async function isPublishedArticleSlug(slug: string): Promise<boolean> {
   }
 }
 
-export async function listPublishedTags(): Promise<TagItem[]> {
-  try {
-    const payload = await getPayload({ config });
-    const [tagsResult, articles] = await Promise.all([
-      payload.find({
-        collection: "tags",
-        limit: 100,
-      }),
-      listPublishedArticles(),
-    ]);
+/**
+ * 取得所有標籤列表並統計各標籤的已發布文章數量。
+ * 支援傳入已獲取的 articles，避免首頁重複執行查詢。
+ */
+export async function listPublishedTags(
+  existingArticles?: PublishedArticleSummary[]
+): Promise<TagItem[]> {
+  const payload = await getPayload({ config });
+  const [tagsResult, articles] = await Promise.all([
+    payload.find({
+      collection: "tags",
+      limit: 0,
+    }),
+    existingArticles ? Promise.resolve(existingArticles) : listPublishedArticles(),
+  ]);
 
-    const tagCounts = new Map<string, number>();
-    for (const article of articles) {
-      for (const tagId of article.tags) {
-        tagCounts.set(tagId, (tagCounts.get(tagId) || 0) + 1);
-      }
+  const tagCounts = new Map<string, number>();
+  for (const article of articles) {
+    for (const tagId of article.tags) {
+      tagCounts.set(tagId, (tagCounts.get(tagId) || 0) + 1);
     }
-
-    const tags: TagItem[] = [
-      { id: "all", label: "全部", count: articles.length },
-      ...tagsResult.docs.map((tagDoc) => {
-        const doc = tagDoc as unknown as Record<string, unknown>;
-        const id = (doc.tagId as string) || String(doc.id);
-        const label = (doc.name as string) || id;
-        return {
-          id,
-          label,
-          count: tagCounts.get(id) || 0,
-        };
-      }),
-    ];
-
-    return tags;
-  } catch (error) {
-    console.error("Failed to list published tags:", error);
-    return [{ id: "all", label: "全部", count: 0 }];
   }
+
+  const tags: TagItem[] = [
+    { id: "all", label: "全部", count: articles.length },
+    ...tagsResult.docs.map((tagDoc) => {
+      const doc = tagDoc as unknown as Record<string, unknown>;
+      const id = (doc.tagId as string) || String(doc.id);
+      const label = (doc.name as string) || id;
+      return {
+        id,
+        label,
+        count: tagCounts.get(id) || 0,
+      };
+    }),
+  ];
+
+  return tags;
+}
+
+/**
+ * 首頁一次性取得已發布文章與標籤資料，避免重複查詢。
+ */
+export async function getHomePageData(): Promise<{
+  articles: PublishedArticleSummary[];
+  tags: TagItem[];
+}> {
+  const articles = await listPublishedArticles();
+  const tags = await listPublishedTags(articles);
+  return { articles, tags };
 }

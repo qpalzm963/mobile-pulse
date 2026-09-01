@@ -49,7 +49,9 @@ if (tagCount.totalDocs === 0) {
           eyebrow: art.eyebrow,
           author: art.author,
           readTime: art.readTime,
-          publishedAt: art.publishedAt,
+          publishedAt: art.publishedAt
+            ? new Date(art.publishedAt.replace(/\./g, "-")).toISOString()
+            : new Date().toISOString(),
           status: "published",
           interactiveComponent: art.interactiveComponent,
           tags: tagIds,

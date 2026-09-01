@@ -1,15 +1,12 @@
 import Link from "next/link";
 import { ArticleDirectory } from "@/components/ArticleDirectory";
 import { AiPulseFeaturedSection } from "@/components/AiPulseFeaturedSection";
-import { listPublishedArticles, listPublishedTags } from "@/lib/articles";
+import { getHomePageData } from "@/lib/articles";
 
 export const revalidate = 60;
 
 export default async function Home() {
-  const [articles, tags] = await Promise.all([
-    listPublishedArticles(),
-    listPublishedTags(),
-  ]);
+  const { articles, tags } = await getHomePageData();
 
   return (
     <main>

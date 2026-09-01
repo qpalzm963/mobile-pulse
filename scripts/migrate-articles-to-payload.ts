@@ -82,11 +82,13 @@ async function run() {
           title: article.title,
           slug: article.slug,
           summary: article.summary,
-          publishedAt: article.publishedAt,
+          publishedAt: article.publishedAt
+            ? new Date(article.publishedAt.replace(/\./g, "-")).toISOString()
+            : new Date().toISOString(),
           status: "published",
           author: "MOBILE PULSE 編輯部",
           readTime: "6 MIN READ",
-          tags: relatedTagIds as any,
+          tags: relatedTagIds as (number | string)[],
           contentMarkdown: `# ${article.title}\n\n${article.summary}\n\n:::callout type="tip"\n本文已同步遷移至 Payload CMS 動態內容系統。\n:::\n`,
         },
       });

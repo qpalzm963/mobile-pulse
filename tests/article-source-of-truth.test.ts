@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { getPayload } from "payload";
 import config from "../payload.config";
 import {
@@ -6,6 +8,8 @@ import {
   getPublishedArticleBySlug,
   isPublishedArticleSlug,
   listPublishedTags,
+  getHomePageData,
+  formatDisplayDate,
 } from "../lib/articles";
 import { readArticleStats } from "../lib/analytics";
 
@@ -54,7 +58,7 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
         title: "Test Published Article",
         slug: publishedSlug,
         summary: "Published summary",
-        publishedAt: "2026.09.01",
+        publishedAt: "2026-09-01T00:00:00.000Z",
         status: "published",
         contentMarkdown: "## Hello World Content",
       },
@@ -114,7 +118,7 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
         title: "Old Article",
         slug: slugOld,
         summary: "Old",
-        publishedAt: "2025.01.01",
+        publishedAt: "2025-01-01T00:00:00.000Z",
         status: "published",
       },
     });
@@ -125,7 +129,7 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
         title: "New Article",
         slug: slugNew,
         summary: "New",
-        publishedAt: "2026.12.31",
+        publishedAt: "2026-12-31T00:00:00.000Z",
         status: "published",
       },
     });
@@ -139,11 +143,18 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
     expect(indexNew).toBeLessThan(indexOld);
   });
 
-  it("listPublishedTags() returns tags from Payload with article counts", async () => {
-    const tags = await listPublishedTags();
+  it("listPublishedTags() and getHomePageData() return tags with counts in single pass", async () => {
+    const { articles, tags } = await getHomePageData();
+    expect(articles.length).toBeGreaterThan(0);
     expect(tags.length).toBeGreaterThan(0);
     expect(tags[0].id).toBe("all");
-    expect(tags[0].count).toBeGreaterThan(0);
+    expect(tags[0].count).toBe(articles.length);
+  });
+
+  it("formatDisplayDate() parses dates and strings into YYYY.MM.DD", () => {
+    expect(formatDisplayDate("2026-08-20T12:00:00.000Z")).toBe("2026.08.20");
+    expect(formatDisplayDate("2026.08.20")).toBe("2026.08.20");
+    expect(formatDisplayDate(null)).toBe("近期發布");
   });
 
   it("readArticleStats() gets published articles from Payload", async () => {
@@ -154,5 +165,19 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
     expect(first.slug).toBeDefined();
     expect(first.views).toBeDefined();
     expect(first.useful).toBeDefined();
+  });
+
+  it("regression: ensures old hardcoded article route directories are removed", () => {
+    const removedDirs = [
+      "app/(app)/articles/ai-agent-security-sandbox-audit/page.tsx",
+      "app/(app)/articles/app-dev-weekly-2026-08-13/page.tsx",
+      "app/(app)/articles/bruno-api-client-git-first/page.tsx",
+      "app/(app)/articles/google-a2ui-agents-speak-ui/page.tsx",
+    ];
+
+    for (const file of removedDirs) {
+      const fullPath = resolve(file);
+      expect(existsSync(fullPath)).toBe(false);
+    }
   });
 });
