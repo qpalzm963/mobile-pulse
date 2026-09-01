@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       sort: "-createdAt",
     });
 
-    const mediaList = result.docs.map((doc: any) => ({
+    const mediaList = result.docs.map((doc: Record<string, unknown>) => ({
       id: String(doc.id),
       url: `/api/media/${doc.id}`,
       filename: doc.filename,
@@ -83,9 +83,10 @@ export async function GET(request: Request) {
     }));
 
     return Response.json({ success: true, media: mediaList, total: result.totalDocs });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Failed to fetch media list";
     console.error("Failed to fetch media list:", error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }
 
@@ -182,8 +183,9 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "Failed to upload media";
     console.error("Failed to upload media:", error);
-    return Response.json({ success: false, error: error.message || "Failed to upload media" }, { status: 500 });
+    return Response.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }

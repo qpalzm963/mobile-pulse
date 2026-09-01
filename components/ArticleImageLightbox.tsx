@@ -55,12 +55,26 @@ export function ArticleImageLightbox() {
   return (
     <div
       className="image-lightbox-backdrop"
-      onClick={() => setActiveSrc(null)}
       role="dialog"
       aria-modal="true"
       aria-label="圖片放大預覽"
     >
-      <div className="image-lightbox-content" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="image-lightbox-overlay-btn"
+        onClick={() => setActiveSrc(null)}
+        aria-label="關閉燈箱"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          width: "100%",
+          height: "100%",
+        }}
+      />
+      <div className="image-lightbox-content" style={{ position: "relative", zIndex: 1 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={activeSrc}
@@ -69,6 +83,7 @@ export function ArticleImageLightbox() {
         />
         {activeAlt && <p className="image-lightbox-caption">{activeAlt}</p>}
         <button
+          type="button"
           className="image-lightbox-close"
           onClick={() => setActiveSrc(null)}
           aria-label="關閉"
