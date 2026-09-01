@@ -32,6 +32,8 @@ export function RichMarkdownRenderer({ content }: Props) {
   if (!content) return null;
 
   // Migration & backward compatibility: If content is pure legacy HTML without markdown structures
+  // TODO(security): Legacy HTML fallback is strictly preserved for backward compatibility with existing internal articles.
+  // In upcoming issues, run a data migration script to convert all legacy articles into Markdown + Shortcode, and remove dangerouslySetInnerHTML.
   const isPureLegacyHtml =
     (content.trim().startsWith("<div") ||
       content.trim().startsWith("<p class=") ||
@@ -41,11 +43,18 @@ export function RichMarkdownRenderer({ content }: Props) {
     !/^#{1,6}\s/m.test(content);
 
   if (isPureLegacyHtml) {
+    // Basic sanitization to neutralize script tags or dangerous inline handlers
+    const sanitizedHtml = content
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
+      .replace(/on\w+\s*=\s*'[^']*'/gi, "")
+      .replace(/javascript\s*:/gi, "");
+
     return (
       <div
         className="rich-html-container article-rendered-html"
         style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--ink-body)" }}
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
       />
     );
   }
