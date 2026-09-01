@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { ARTICLES } from "../data/articles";
+import { listPublishedArticles } from "./articles";
 import { getDb } from "../db";
 
 export type ArticleStats = {
@@ -55,14 +55,15 @@ type FeedbackRow = {
 };
 
 /**
- * 每篇文章一列，**以 ARTICLES 為準**而不是以資料表為準：
+ * 每篇文章一列，以 Payload published articles 為準：
  * 還沒有任何瀏覽或回饋的文章也必須出現在管理頁，否則新文章會憑空消失，
  * 站長無法分辨「沒人看」與「統計壞了」。
  */
 export async function readArticleStats(): Promise<ArticleStats[]> {
   const db = getDb();
 
-  const [viewRows, feedbackRows] = await Promise.all([
+  const [articles, viewRows, feedbackRows] = await Promise.all([
+    listPublishedArticles(),
     db.all<ViewRow>(sql`
       select article_slug, count(*) as views
       from article_views
@@ -81,7 +82,7 @@ export async function readArticleStats(): Promise<ArticleStats[]> {
   const views = new Map(viewRows.map((row) => [row.article_slug, row.views]));
   const feedback = new Map(feedbackRows.map((row) => [row.article_slug, row]));
 
-  return ARTICLES.map((article) => {
+  return articles.map((article) => {
     const row = feedback.get(article.slug);
     const useful = row?.useful ?? 0;
     const notUseful = row?.not_useful ?? 0;

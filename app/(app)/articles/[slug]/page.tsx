@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPayload } from "payload";
 import { ArticleToc } from "@/components/ArticleToc";
 import { Feedback } from "@/components/Feedback";
 import { RichMarkdownRenderer } from "@/components/RichMarkdownRenderer";
-import config from "@payload-config";
+import { getPublishedArticleBySlug } from "@/lib/articles";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -14,18 +13,11 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const payload = await getPayload({ config });
-    const result = await payload.find({
-      collection: "articles",
-      where: { slug: { equals: slug } },
-      limit: 1,
-    });
-
-    if (result.docs.length === 0) {
+    const article = await getPublishedArticleBySlug(slug);
+    if (!article) {
       return { title: "文章未找到 | MOBILE PULSE" };
     }
 
-    const article = result.docs[0];
     return {
       title: `${article.title} | MOBILE PULSE`,
       description: article.summary,
@@ -37,18 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function DynamicArticlePage({ params }: Props) {
   const { slug } = await params;
-  const payload = await getPayload({ config });
-  const result = await payload.find({
-    collection: "articles",
-    where: { slug: { equals: slug } },
-    limit: 1,
-  });
+  const article = await getPublishedArticleBySlug(slug);
 
-  if (result.docs.length === 0) {
+  if (!article) {
     notFound();
   }
-
-  const article = result.docs[0];
 
   return (
     <main className="article-page">
@@ -77,6 +62,42 @@ export default async function DynamicArticlePage({ params }: Props) {
               <span>{article.author || "MOBILE PULSE 編輯部"}</span>
             </p>
           </div>
+
+          {article.coverImage?.url ? (
+            <div
+              className="article-cover"
+              style={{
+                margin: "24px 0",
+                borderRadius: "8px",
+                overflow: "hidden",
+                border: "1px solid var(--rule, #222f49)",
+                background: "var(--bg-subtle, #1a2234)",
+              }}
+            >
+              <img
+                src={article.coverImage.url}
+                alt={article.coverImage.alt || article.title}
+                style={{
+                  width: "100%",
+                  maxHeight: "420px",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+              {article.coverImage.caption ? (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    fontSize: "12px",
+                    color: "var(--muted, #94a3b8)",
+                    borderTop: "1px solid var(--rule, #222f49)",
+                  }}
+                >
+                  {article.coverImage.caption}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {article.contentMarkdown ? (
             <RichMarkdownRenderer content={article.contentMarkdown} />

@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { isKnownSlug } from "../../../../../data/articles";
+import { isPublishedArticleSlug } from "@/lib/articles";
 import { getDb } from "../../../../../db";
 import { articleFeedback } from "../../../../../db/schema";
 import { readJson, readVisitorId } from "../../../../../lib/request";
@@ -24,7 +24,7 @@ const PRIVATE = { "cache-control": "no-store" };
  */
 export async function GET(request: Request, { params }: Params) {
   const { slug } = await params;
-  if (!isKnownSlug(slug)) {
+  if (!slug || !(await isPublishedArticleSlug(slug))) {
     return new Response(null, { status: 400 });
   }
 
@@ -65,7 +65,7 @@ export async function GET(request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   const { slug } = await params;
-  if (!isKnownSlug(slug)) {
+  if (!slug || !(await isPublishedArticleSlug(slug))) {
     return new Response(null, { status: 400 });
   }
 
