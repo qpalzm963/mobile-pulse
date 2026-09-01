@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPayload } from "payload";
@@ -194,6 +194,24 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
       expect(article).not.toBeNull();
       expect(article?.contentMarkdown.length).toBeGreaterThan(300);
       expect(article?.contentMarkdown).not.toContain("本文已同步遷移至 Payload CMS 動態內容系統");
+    }
+  });
+
+  afterAll(async () => {
+    try {
+      const payload = await getPayload({ config });
+      const testArticles = await payload.find({
+        collection: "articles",
+        where: {
+          slug: { contains: "test-" },
+        },
+        limit: 0,
+      });
+      for (const doc of testArticles.docs) {
+        await payload.delete({ collection: "articles", id: doc.id });
+      }
+    } catch {
+      // ignore
     }
   });
 });
