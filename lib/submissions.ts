@@ -495,7 +495,7 @@ export class SubmissionService {
       limit: 0,
     });
 
-    let count = reviewsResult.docs.length;
+    const count = reviewsResult.docs.length;
     let sumDepth = 0;
     let sumClarity = 0;
     let sumPracticality = 0;
@@ -515,7 +515,7 @@ export class SubmissionService {
           id: r.id as string | number,
           submissionId,
           reviewerToken: String(r.reviewerToken),
-          priorKnowledge: (r.priorKnowledge as any) || "new_knowledge",
+          priorKnowledge: (r.priorKnowledge as SubmissionReviewItem["priorKnowledge"]) || "new_knowledge",
           scoreDepth: d,
           scoreClarity: c,
           scorePracticality: p,

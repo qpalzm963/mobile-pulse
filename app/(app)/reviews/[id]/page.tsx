@@ -96,8 +96,9 @@ export default function ReviewDetailPage() {
         }
         setActionMessage("狀態更新成功！");
       }
-    } catch (err: any) {
-      setActionMessage(`❌ 錯誤：${err.message || "操作失敗"}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "操作失敗";
+      setActionMessage(`❌ 錯誤：${msg}`);
     } finally {
       setActionLoading(false);
     }

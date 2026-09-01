@@ -1,6 +1,6 @@
 import { validateArticleInput } from "../../../lib/content-markdown";
 import { readJson } from "../../../lib/request";
-import { SubmissionService } from "../../../lib/submissions";
+import { SubmissionService, type SubmissionStatus } from "../../../lib/submissions";
 
 export async function GET(request?: Request) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request?: Request) {
       }
     }
     const list = await SubmissionService.listSubmissions({
-      status: statusParam ? (statusParam.split(",") as any) : undefined,
+      status: statusParam ? (statusParam.split(",") as SubmissionStatus[]) : undefined,
     });
 
     return Response.json(list, {

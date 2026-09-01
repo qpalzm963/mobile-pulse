@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const result = await SubmissionService.addOrUpdateReview(id, {
       reviewerToken,
-      priorKnowledge: (priorKnowledge as any) || "new_knowledge",
+      priorKnowledge: (priorKnowledge as "new_knowledge" | "familiar_surface" | "already_expert") || "new_knowledge",
       scoreDepth: depth,
       scoreClarity: clarity,
       scorePracticality: practicality,
