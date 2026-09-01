@@ -7,6 +7,25 @@ import payloadConfig from "../payload.config";
 import { TAGS } from "../data/articles";
 import { SEED_ARTICLES } from "../data/seed-articles";
 
+function toIsoDate(dateVal: unknown): string {
+  if (!dateVal) return new Date().toISOString();
+  if (typeof dateVal === "string") {
+    const direct = new Date(dateVal);
+    if (!isNaN(direct.getTime())) {
+      return direct.toISOString();
+    }
+    const formatted = dateVal.replace(/\./g, "-");
+    const parsed = new Date(formatted);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    return dateVal.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 // Ensure local storage directories exist
 mkdirSync(resolve(".data"), { recursive: true });
 mkdirSync(resolve("media"), { recursive: true });
@@ -54,9 +73,7 @@ for (const art of SEED_ARTICLES) {
   });
 
   const tagIds = art.tags.map((t) => tagMap.get(t)).filter(Boolean) as (number | string)[];
-  const isoDate = art.publishedAt
-    ? new Date(art.publishedAt.replace(/\./g, "-")).toISOString()
-    : new Date().toISOString();
+  const isoDate = toIsoDate(art.publishedAt);
 
   if (existing.docs.length > 0) {
     const doc = existing.docs[0];

@@ -6,6 +6,10 @@ import { SEED_ARTICLES } from "../data/seed-articles";
 function toIsoDate(dateVal: unknown): string {
   if (!dateVal) return new Date().toISOString();
   if (typeof dateVal === "string") {
+    const direct = new Date(dateVal);
+    if (!isNaN(direct.getTime())) {
+      return direct.toISOString();
+    }
     const formatted = dateVal.replace(/\./g, "-");
     const parsed = new Date(formatted);
     if (!isNaN(parsed.getTime())) {
