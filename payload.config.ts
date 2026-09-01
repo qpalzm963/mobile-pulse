@@ -11,14 +11,25 @@ import { Media } from "./payload/collections/Media";
 import { Tags } from "./payload/collections/Tags";
 import { Users } from "./payload/collections/Users";
 
+import { existsSync, mkdirSync } from "fs";
+
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-const dbPath = process.env.PAYLOAD_DATABASE_FILE
+const rawDbFile = process.env.PAYLOAD_DATABASE_FILE
   ? process.env.PAYLOAD_DATABASE_FILE.startsWith("/")
-    ? `file:${process.env.PAYLOAD_DATABASE_FILE}`
-    : `file:${path.resolve(dirname, process.env.PAYLOAD_DATABASE_FILE)}`
-  : `file:${path.resolve(dirname, ".data/cms.sqlite")}`;
+    ? process.env.PAYLOAD_DATABASE_FILE
+    : path.resolve(dirname, process.env.PAYLOAD_DATABASE_FILE)
+  : path.resolve(dirname, ".data/cms.sqlite");
+
+if (rawDbFile !== ":memory:") {
+  const dbDir = path.dirname(rawDbFile);
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+  }
+}
+
+const dbPath = rawDbFile === ":memory:" ? ":memory:" : `file:${rawDbFile}`;
 
 export default buildConfig({
   i18n: {

@@ -147,7 +147,7 @@ describe("Media Collection & Upload Pipeline", () => {
 
     // 2. 在結尾插入
     const { newText: endText } = insertTextAtCursor(original, shortcode, original.length, original.length);
-    expect(endText.endsWith(shortcode)).toBe(false);
+    expect(endText.endsWith(shortcode)).toBe(true);
     expect(endText).toContain(shortcode);
 
     // 3. 無指定 cursor 時安全 append

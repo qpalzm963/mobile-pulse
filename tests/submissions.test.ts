@@ -154,7 +154,7 @@ describe("Submissions & Peer Review System", () => {
     );
     expect(patchRes.status).toBe(200);
     const patchData = await patchRes.json();
-    expect(patchData.submission.contentMarkdown).toBe("這是更新過後的 Markdown 文章正文內容聲稱。".slice(0, 21));
+    expect(patchData.submission.contentMarkdown).toBe("這是更新過後的 Markdown 文章正文內容。");
 
     // Attempt to update with too short content
     const badPatchRes = await updateSubmission(
