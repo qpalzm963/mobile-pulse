@@ -8,6 +8,20 @@
       "when": 1786613566435,
       "tag": "0000_smart_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787207987874,
+      "tag": "0001_young_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787210892836,
+      "tag": "0002_clumsy_golden_guardian",
+      "breakpoints": true
     }
   ]
 }

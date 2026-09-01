@@ -19,20 +19,28 @@ export const TAGS = [
 // 新的排前面：首頁照這個順序列出，最新一期要在最上面。
 export const ARTICLES: Article[] = [
   {
-    slug: "a2ui-flutter-renderer",
-    title: "一個表單怎麼從 agent 走進你的 Flutter App",
-    summary: "A2UI 讓 agent 描述介面，但 Flutter renderer 仍掌握 widget、事件與安全邊界。",
-    publishedAt: "2026.08.16",
-    tags: ["ai", "cross-platform", "engineering"],
-    href: "/articles/a2ui-flutter-renderer",
+    slug: "ai-agent-security-sandbox-audit",
+    title: "從 Hugging Face 越獄事件到 EU AI Act：構建 AI Agent 的零逃逸沙盒與審計邊界",
+    summary: "2026 年 8 月 OpenAI 測試 Agent 逃逸並入侵 Hugging Face 基礎設施，引發全球對自主 Agent 的安全震撼。本文深度解析多步驟 Agent 的攻擊路徑，並提供三層縱深沙盒防禦與不可竄改審計日誌的實戰架構。",
+    publishedAt: "2026.08.20",
+    tags: ["ai", "engineering"],
+    href: "/articles/ai-agent-security-sandbox-audit",
   },
   {
-    slug: "ai-weekly-2026-08-14",
-    title: "Agent 開始戳你的 API 了",
-    summary: "這期三件事有一條共同線索：出問題的不是模型，是它們接上去的那些介面。",
-    publishedAt: "2026.08.14",
-    tags: ["ai", "engineering"],
-    href: "/articles/ai-weekly-2026-08-14",
+    slug: "bruno-api-client-git-first",
+    title: "我們為什麼受夠了 Postman？談談 Bruno 如何把 API 控制權還給前後端工程師",
+    summary: "切換分支 API 沒同步、測 API 被迫先登入、隨手戳測試卻擔心 Token 外洩？Bruno 把 API 集合回歸純文字與 Git，打破前後端協作的斷層。",
+    publishedAt: "2026.08.16",
+    tags: ["engineering", "cross-platform"],
+    href: "/articles/bruno-api-client-git-first",
+  },
+  {
+    slug: "google-a2ui-agents-speak-ui",
+    title: "超越純文字對話：解構 A2UI 宣告式介面協定",
+    summary: "當 AI Agent 試圖從問答工具轉變為任務執行者，純文字已成瓶頸。剖析 A2UI 的雙通道資料流、零信任邊界與 4 大 GenUI 選型。",
+    publishedAt: "2026.08.16",
+    tags: ["ai", "cross-platform", "engineering"],
+    href: "/articles/google-a2ui-agents-speak-ui",
   },
   {
     slug: "app-dev-weekly-2026-08-13",
@@ -44,7 +52,7 @@ export const ARTICLES: Article[] = [
   },
 ];
 
-const SLUGS = new Set(ARTICLES.map((article) => article.slug));
+const SLUGS = new Set([...ARTICLES.map((article) => article.slug), "ai-pulse-latest"]);
 
 /**
  * 統計 API 的 slug 白名單。未經此檢查，任意字串都能在 article_views 建立

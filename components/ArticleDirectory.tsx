@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { ARTICLES, TAGS } from "../data/articles";
 
@@ -49,7 +48,7 @@ export function ArticleDirectory({ children }: { children?: ReactNode }) {
         {children}
         {visible.length ? (
           visible.map((article) => (
-            <Link className="row" href={article.href} key={article.slug}>
+            <a className="row" href={article.href} key={article.slug}>
               <p className="card-meta">
                 <span>{article.publishedAt}</span>
               </p>
@@ -60,7 +59,7 @@ export function ArticleDirectory({ children }: { children?: ReactNode }) {
                   <span key={tag}>{LABELS.get(tag) ?? tag}</span>
                 ))}
               </div>
-            </Link>
+            </a>
           ))
         ) : (
           <div className="empty-state">

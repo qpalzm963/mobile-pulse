@@ -1,8 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+dist/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -47,7 +48,12 @@ tsconfig.tsbuildinfo
 
 # local sqlite data
 /.data/
+/data/*.sqlite*
+*.sqlite*
 !.env.example
+
+.pnpm-store/
+.superpowers/
 
 # 第三方 skill 的安裝目錄。skills-lock.json 有版控，
 # 需要時用 `npx skills experimental_install` 還原，

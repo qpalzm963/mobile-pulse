@@ -2,41 +2,37 @@
 
 繁體中文的 App 開發技術與工具週報文章站。
 
-## 新增文章（交給 Codex）
+## 文章投稿與同儕審評
 
-請直接對 Codex 說：
+透過前台投稿中心（`/submit`）或編輯工作台提交文章草稿，並進入同儕審評大廳（`/reviews`）進行審查與回饋。
 
-> 使用 last30days 與 newsletter-generation，產出一篇可發布的繁體中文 HTML 圖文文章，再新增至 MOBILE PULSE 網站。先依文章類型選擇 `docs/article-quality-standard.md` 的 HTML 敘事模組；禁止 Mermaid 與純文字長文。所有事實附原始來源，文章必須先通過該文件的發布最低門檻。
+流程規範：
 
-新增時請：
-
-1. 先依文章類型選好 HTML 敘事模組（見 `docs/article-quality-standard.md`），再寫文案 —— 不是反過來。
-2. 建立 `app/articles/<slug>/page.tsx`，沿用現有文章的導覽與 `Feedback` 區塊。「AI 大小事」的四個模組已是現成元件：`ArticleHero`、`QuickRead`、`EventCard`、`ImpactMatrix`（`components/`，樣式在 `app/globals.css` 的「文章敘事模組」區塊）。
-3. 需要圖表時放進 `public/`。事實的出處寫在對應的模組上（例如 `EventCard` 的 `sources`），不要只在文末列一份總來源清單。
-4. 在 `data/articles.ts` 加入 `slug`、`title`、`summary`、`publishedAt`、`tags`、`href`。沒登記的文章不會出現在首頁，回饋 API 也會拒絕它的 slug。
-5. 執行 `npm test` 與 `npm run build`。
-
-## 短影片（Remotion）
-
-由主題自動查資料、產出腳本，再渲染成 9:16／16:9 短影片。詳細用法見 [`docs/remotion-video-tool.md`](docs/remotion-video-tool.md)。
-
-```bash
-npm run video:create -- --topic "Swift Concurrency"   # 查資料並覆寫 data/video-config.json
-npm run video:preview                                  # Remotion Studio
-npm run video:render                                   # 輸出 out/video-vertical.mp4
-```
-
-`data/video-config.json` 有進版控，而且是唯一來源 —— `remotion/Root.tsx` 靜態 import 它，沒有預設值可以退，刪掉就編不過。
-
-內容由 `writing-short-video-script` skill 產生（`.claude/skills/`），`npm run video:create` 只是它的 headless 包裝，內部以 `claude -p` 呼叫，需要 `claude` CLI 在 PATH 上。互動式使用直接叫那個 skill 即可。
-
-**查不到足夠資料時，skill 會停下來說明缺什麼**，`data/video-config.json` 維持原樣，指令以 exit 1 結束。不會用通用文案把重點補滿。
-
-skill 的產出會先經 `scripts/write-video-config.mjs` 驗過 schema（重點固定 3 條、程式碼 ≤25 行且單行 ≤80 字元）才寫檔；驗不過會逐條指出是哪一欄。配色不經模型，由該腳本依主題關鍵字查表決定。
+1. **草稿提交**：於 `/submit` 輸入標題、摘要、分類標籤與正文內容，存為草稿或直接送交審評。
+2. **同儕審評**：於 `/reviews` 大廳檢視送審文章，提供評分、標註與改善建議。
+3. **正式發布**：審核通過後由編輯部排程上線，文末包含匿名讀者回饋機制（`<Feedback />`）。
 
 ## 執行與自架
 
 站台跑在 Node 上，不依賴任何雲端平台。
+
+### Docker 部署（推薦）
+
+```bash
+# 1. 複製設定檔並填入密碼
+cp .env.example .env
+
+# 2. 一鍵建置並於背景啟動
+docker compose up -d --build
+
+# 3. 查看運行日誌
+docker compose logs -f
+```
+
+- 資料庫檔案會自動持久化掛載於主機的 `./data` 目錄下。
+- 新增文章後，只需 `git pull && docker compose up -d --build` 即可無縫更新。
+
+### 本機原生執行
 
 ```bash
 npm run dev            # 開發（含 HMR）

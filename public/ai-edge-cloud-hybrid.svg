@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">端雲協同 App AI 運算架構</title>
+  <desc id="desc">端側 NPU 本地小模型與雲端大型推理模型的分流協同架構。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity=".2"/></filter>
+  </defs>
+  <rect width="1200" height="420" rx="24" fill="url(#bg)"/>
+  <text x="60" y="65" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700">端雲協同：現代 App 的最佳 AI 落地拓撲</text>
+  <text x="60" y="98" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16">將隱私與即時性交給手機 NPU，將深度推理與多步驟任務交給雲端巨型模型。</text>
+  
+  <g filter="url(#shadow)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <!-- Edge Device Box -->
+    <rect x="60" y="145" width="460" height="215" rx="18" fill="#ffffff"/>
+    <rect x="60" y="145" width="460" height="42" rx="18" fill="#ecfdf5"/>
+    <text x="85" y="173" fill="#047857" font-size="16" font-weight="700">📱 行動裝置端側（3B ~ 7B NPU 量化模型）</text>
+    
+    <text x="85" y="222" fill="#0f172a" font-size="15" font-weight="600">處理邊界：</text>
+    <text x="85" y="248" fill="#475569" font-size="14">✓ 本地 PII 敏感個資脫敏過濾</text>
+    <text x="85" y="274" fill="#475569" font-size="14">✓ 離線語音喚醒與即時意圖分類 (40+ t/s)</text>
+    <text x="85" y="300" fill="#475569" font-size="14">✓ 裝置本機資料庫向量搜尋</text>
+    <text x="85" y="335" fill="#059669" font-size="13" font-weight="700">優勢：零伺服器成本 · 100% 離線可用 · 隱私保證</text>
+
+    <!-- Cloud Box -->
+    <rect x="680" y="145" width="460" height="215" rx="18" fill="#ffffff"/>
+    <rect x="680" y="145" width="460" height="42" rx="18" fill="#eff6ff"/>
+    <text x="705" y="173" fill="#1d4ed8" font-size="16" font-weight="700">☁️ 雲端後端（頂級 Reasoning / Coding 模型）</text>
+    
+    <text x="705" y="222" fill="#0f172a" font-size="15" font-weight="600">處理邊界：</text>
+    <text x="705" y="248" fill="#475569" font-size="14">✓ 複雜跨領域深層邏輯推導</text>
+    <text x="705" y="274" fill="#475569" font-size="14">✓ 多步驟 Agent 與沙盒 Tool Call 執行</text>
+    <text x="705" y="300" fill="#475569" font-size="14">✓ 超長 Codebase 架構分析與生成</text>
+    <text x="705" y="335" fill="#2563eb" font-size="13" font-weight="700">優勢：世界級智力 · 無限知識庫 · 彈性擴展</text>
+  </g>
+
+  <!-- Connectors -->
+  <g stroke="url(#flow)" stroke-width="4" stroke-dasharray="6 4" fill="none">
+    <path d="M525 240h150"/>
+  </g>
+  <rect x="555" y="220" width="90" height="40" rx="8" fill="#1e293b" stroke="#38bdf8"/>
+  <text x="568" y="245" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700">安全 API</text>
+</svg>

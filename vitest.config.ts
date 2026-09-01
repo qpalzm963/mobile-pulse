@@ -1,14 +1,21 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@payload-config": path.resolve(__dirname, "./payload.config.ts"),
+      "@": path.resolve(__dirname, "."),
+    },
+  },
   test: {
-    // 既有的 tests/*.test.mjs 由 node --test 跑（見 package.json 的 test 指令），
-    // 這裡只收 TypeScript 測試。
     include: ["tests/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],
     environment: "node",
-    // better-sqlite3 是原生模組，用 forks 而非 threads 比較穩，
-    // 而且每個測試檔各自一個行程 = 各自一份記憶體資料庫。
     pool: "forks",
+    fileParallelism: false,
   },
 });

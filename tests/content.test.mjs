@@ -5,30 +5,27 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("the initial weekly article is linked from the homepage data", async () => {
-  const page = await readFile(new URL("app/page.tsx", root), "utf8");
-  const article = await readFile(new URL("app/articles/app-dev-weekly-2026-08-13/page.tsx", root), "utf8");
+  const page = await readFile(new URL("app/(app)/page.tsx", root), "utf8");
+  const article = await readFile(new URL("app/(app)/articles/app-dev-weekly-2026-08-13/page.tsx", root), "utf8");
   assert.match(page, /ArticleDirectory/);
   assert.match(article, /<Feedback slug="app-dev-weekly-2026-08-13"/);
   assert.match(article, /Android Developers — Latest updates/);
 });
 
-test("the A2UI Flutter article is published with its teaching modules and official sources", async () => {
+test("the A2UI architecture article is published with its teaching modules and official sources", async () => {
   const articles = await readFile(new URL("data/articles.ts", root), "utf8");
   const article = await readFile(
-    new URL("app/articles/a2ui-flutter-renderer/page.tsx", root),
+    new URL("app/(app)/articles/google-a2ui-agents-speak-ui/page.tsx", root),
     "utf8"
   );
 
-  assert.match(articles, /slug: "a2ui-flutter-renderer"/);
-  assert.match(article, /<FlutterConceptMap\s*\/>/);
-  assert.match(article, /<A2uiTrace/);
-  assert.match(article, /<ControlBoundary/);
-  assert.match(article, /不是 Dart 原始碼/);
-  assert.match(article, /先用 Flutter 的方式理解 A2UI/);
-  assert.match(article, /A2UI 官方專案/);
-  assert.match(article, /Flutter GenUI SDK/);
-  assert.match(article, /A2UI v0\.9 extension specification/);
-  assert.match(article, /<Feedback slug="a2ui-flutter-renderer"/);
+  assert.match(articles, /slug: "google-a2ui-agents-speak-ui"/);
+  assert.match(article, /<GenUiArchitectureInteractive\s*\/>/);
+  assert.match(article, /<ArticleHero/);
+  assert.match(article, /<QuickRead/);
+  assert.match(article, /Google A2UI 官方開源專案/);
+  assert.match(article, /A2UI v0\.9 協定擴充規格文件/);
+  assert.match(article, /<Feedback slug="google-a2ui-agents-speak-ui"/);
 });
 
 test("feedback goes through the server endpoints, not local browser storage", async () => {

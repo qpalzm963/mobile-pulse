@@ -1,0 +1,1 @@
+ALTER TABLE `submission_ratings` ADD `prior_knowledge` text DEFAULT 'new_knowledge' NOT NULL;

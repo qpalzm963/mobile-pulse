@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">DeepSeek-R1 震撼市場架構圖</title>
+  <desc id="desc">開源低成本推理模型對傳統暴力堆疊運算力模式的衝擊對比。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity=".2"/></filter>
+  </defs>
+  <rect width="1200" height="420" rx="24" fill="url(#bg)"/>
+  
+  <text x="60" y="65" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700">AI 推理典範轉移：演算法優化 vs 暴力算力堆疊</text>
+  <text x="60" y="98" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15">從千億資本預訓練，轉向強化學習（RL）與蒸餾架構的極致成本效益。</text>
+
+  <!-- 左側傳統巨頭卡片 -->
+  <g transform="translate(60, 130)" filter="url(#shadow)">
+    <rect width="510" height="230" rx="16" fill="#f8fafc"/>
+    <rect width="510" height="42" rx="16" fill="#e2e8f0"/>
+    <text x="24" y="27" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700">🏢 傳統閉源巨頭模式（Pre-training Heavy）</text>
+    <text x="24" y="75" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14.5">
+      <tspan x="24" dy="0">• 依賴數萬張頂級 GPU 叢集進行超長周期預訓練</tspan>
+      <tspan x="24" dy="28">• 單次訓練成本動輒數千萬至上億美元</tspan>
+      <tspan x="24" dy="28">• 閉源商業授權，透過高昂 API 計費維持營運</tspan>
+      <tspan x="24" dy="28">• 技術細節與權重嚴格保密，形成護城河</tspan>
+    </text>
+    <text x="24" y="202" fill="#ef4444" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">挑戰：資本門檻極高，利潤面臨開源競爭侵蝕</text>
+  </g>
+
+  <!-- 右側 DeepSeek 突破卡片 -->
+  <g transform="translate(630, 130)" filter="url(#shadow)">
+    <rect width="510" height="230" rx="16" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+    <rect width="510" height="42" rx="16" fill="#dcfce7"/>
+    <text x="24" y="27" fill="#166534" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700">⚡ DeepSeek-R1 新典範（Pure RL &amp; Distill）</text>
+    <text x="24" y="75" fill="#15803d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14.5">
+      <tspan x="24" dy="0">• 純強化學習（Pure RL）自發演化出多步驟思維鏈</tspan>
+      <tspan x="24" dy="28">• 訓練成本宣稱僅約 600 萬美元，效益提升數十倍</tspan>
+      <tspan x="24" dy="28">• 完全開源模型權重與蒸餾小模型（1.5B ~ 70B）</tspan>
+      <tspan x="24" dy="28">• 支援離線與邊緣端本地部署（Ollama / vLLM）</tspan>
+    </text>
+    <text x="24" y="202" fill="#16a34a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">優勢：極致性價比，引爆全球開源社群本地部署潮</text>
+  </g>
+</svg>

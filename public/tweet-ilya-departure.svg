@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 290" width="100%" height="100%">
+  <defs>
+    <!-- 圓角卡片陰影 -->
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.06" />
+    </filter>
+    <!-- 頭貼裁切 -->
+    <clipPath id="avatar-clip">
+      <circle cx="48" cy="48" r="24" />
+    </clipPath>
+  </defs>
+
+  <!-- 外層背景卡片 -->
+  <rect x="10" y="10" width="600" height="270" rx="16" fill="#ffffff" stroke="#e1e8ed" stroke-width="1.2" filter="url(#card-shadow)" />
+
+  <!-- 頭像 (預設頭像配色與縮寫) -->
+  <g>
+    <circle cx="48" cy="48" r="24" fill="#0f172a" />
+    <text x="48" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#ffffff" text-anchor="middle">IS</text>
+  </g>
+
+  <!-- 作者資訊 -->
+  <text x="84" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#0f1419">Ilya Sutskever</text>
+  
+  <!-- 藍勾勾 -->
+  <g transform="translate(196, 31)">
+    <circle cx="8" cy="8" r="8" fill="#1d9bf0" />
+    <path d="M5 8.2l2.2 2.2 4.4-4.4" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <text x="84" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#536471">@ilyasut</text>
+
+  <!-- X Logo -->
+  <path d="M575 32l-10.4 12.3L576 60h-2.5l-9.1-12.4-7.5 12.4h-6.8l11.1-13.2L551 32h2.5l8.4 11.5 6.9-11.5h6.2zm-3.6 26.2h1.6L556.1 33.6h-1.7l17 24.6z" fill="#0f1419" />
+
+  <!-- 推文主體 -->
+  <text x="24" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15.5" line-height="1.5" fill="#0f1419">
+    <tspan x="24" dy="0">After almost a decade, I have made the decision to leave OpenAI. The</tspan>
+    <tspan x="24" dy="24">company’s trajectory has been nothing short of miraculous, and I’m</tspan>
+    <tspan x="24" dy="24">confident that OpenAI will build safe and beneficial AGI...</tspan>
+    <tspan x="24" dy="28" font-weight="600" fill="#000000">I am excited for what comes next — a project that is very personally</tspan>
+    <tspan x="24" dy="24" font-weight="600" fill="#000000">meaningful to me about which I will share details in due time.</tspan>
+  </text>
+
+  <!-- 分隔線 -->
+  <line x1="24" y1="225" x2="596" y2="225" stroke="#eff3f4" stroke-width="1" />
+
+  <!-- 底部數據資訊 -->
+  <text x="24" y="254" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13.5" fill="#536471">
+    <tspan fill="#536471">May 15, 2024</tspan>
+    <tspan dx="16" fill="#536471">💬 1.4K</tspan>
+    <tspan dx="16" fill="#536471">🔄 2.3K</tspan>
+    <tspan dx="16" fill="#536471">🤍 25.3K</tspan>
+    <tspan dx="16" fill="#536471">📊 5.9M</tspan>
+  </text>
+</svg>

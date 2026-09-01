@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Gemini 3.7 Flash 混合推理與 Agentic 工作流架構</title>
+  <desc id="desc">Gemini 3.7 Flash 在多步驟 Agent 調用、即時推論與自我修復循環的技術拓撲。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity=".2"/></filter>
+  </defs>
+  <rect width="1200" height="420" rx="24" fill="url(#bg)"/>
+  <text x="60" y="65" fill="#fff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700">Gemini 3.7 Flash：Agentic 多步驟極速工作流架構</text>
+  <text x="60" y="98" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16">專為高頻 Tool Calling、動態思考時間（Dynamic Thinking）與自我糾錯所設計的混合推理引擎。</text>
+  
+  <g filter="url(#shadow)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <!-- Step 1: Dynamic Thinking Box -->
+    <rect x="60" y="145" width="340" height="215" rx="18" fill="#ffffff"/>
+    <rect x="60" y="145" width="340" height="42" rx="18" fill="#eff6ff"/>
+    <text x="80" y="173" fill="#1d4ed8" font-size="16" font-weight="700">🧠 動態思維推理（Dynamic Thinking）</text>
+    
+    <text x="80" y="218" fill="#0f172a" font-size="14.5" font-weight="600">核心能力：</text>
+    <text x="80" y="244" fill="#475569" font-size="13.5">• 根據任務難度自適應調整思考 Token</text>
+    <text x="80" y="270" fill="#475569" font-size="13.5">• 秒級響應簡單指令，長程拆解複雜架構</text>
+    <text x="80" y="296" fill="#475569" font-size="13.5">• 支援即時串流輸出思考鏈過程</text>
+    <text x="80" y="330" fill="#2563eb" font-size="13" font-weight="700">優勢：延遲與推理深度達到最佳平衡</text>
+
+    <!-- Step 2: Agent Tool Calling Box -->
+    <rect x="430" y="145" width="340" height="215" rx="18" fill="#ffffff"/>
+    <rect x="430" y="145" width="340" height="42" rx="18" fill="#ecfdf5"/>
+    <text x="450" y="173" fill="#047857" font-size="16" font-weight="700">⚡ 高頻工具調用（Tool Calling）</text>
+    
+    <text x="450" y="218" fill="#0f172a" font-size="14.5" font-weight="600">核心能力：</text>
+    <text x="450" y="244" fill="#475569" font-size="13.5">• 嚴格符合 JSON Schema 參數約束</text>
+    <text x="450" y="270" fill="#475569" font-size="13.5">• 並行觸發多個外部 API 與終端命令</text>
+    <text x="450" y="296" fill="#475569" font-size="13.5">• 支援即時環境狀態與執行結果回傳</text>
+    <text x="450" y="330" fill="#059669" font-size="13" font-weight="700">優勢：極低 Schema 幻覺與語法錯誤</text>
+
+    <!-- Step 3: Self-Correction Loop Box -->
+    <rect x="800" y="145" width="340" height="215" rx="18" fill="#ffffff"/>
+    <rect x="800" y="145" width="340" height="42" rx="18" fill="#fdf4ff"/>
+    <text x="820" y="173" fill="#86198f" font-size="16" font-weight="700">🔄 自我糾錯閉環（Self-Correction）</text>
+    
+    <text x="820" y="218" fill="#0f172a" font-size="14.5" font-weight="600">核心能力：</text>
+    <text x="820" y="244" fill="#475569" font-size="13.5">• 讀取編譯失敗與測試報錯日誌</text>
+    <text x="820" y="270" fill="#475569" font-size="13.5">• 自動生成 Patch 並重新驗證</text>
+    <text x="820" y="296" fill="#475569" font-size="13.5">• 直至 CI 綠燈通過才完成交付</text>
+    <text x="820" y="330" fill="#a21caf" font-size="13" font-weight="700">優勢：自主完成多步驟程式碼重構</text>
+  </g>
+</svg>

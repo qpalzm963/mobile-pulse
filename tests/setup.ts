@@ -16,5 +16,5 @@ migrate(openDbForMigration(), { migrationsFolder: "./drizzle" });
 // 測試之間清表，讓每個測試都從空資料開始，否則前一個測試留下的資料列
 // 會讓後一個測試的計數與唯一性斷言失真。
 beforeEach(() => {
-  getDb().$client.exec("delete from article_views; delete from article_feedback;");
+  getDb().$client.exec("delete from article_views; delete from article_feedback; delete from submission_annotations; delete from submission_ratings; delete from submissions;");
 });

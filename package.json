@@ -5,31 +5,46 @@
   "engines": {
     "node": ">=22.13.0"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build",
-    "start": "vinext start",
+    "dev": "next dev --webpack -H 0.0.0.0 -p 3000",
+    "dev:web": "next dev --webpack -H 0.0.0.0 -p 3000",
+    "dev:workbench": "npm --prefix apps/workbench run dev",
+    "build": "next build --webpack",
+    "build:workbench": "npm --prefix apps/workbench run build",
+    "start": "next start -H 0.0.0.0",
     "test": "node --test tests/*.test.mjs && vitest run",
+    "test:api-client": "vitest run --config packages/api-client/vitest.config.ts",
+    "test:all": "node --test tests/*.test.mjs && vitest run && vitest run --config packages/api-client/vitest.config.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs",
-    "video:create": "node scripts/generate-video-script.mjs",
-    "video:preview": "npx remotion preview remotion/index.ts",
-    "video:render": "npx remotion render remotion/index.ts ShortVideoVertical out/video-vertical.mp4",
-    "video:render:horizontal": "npx remotion render remotion/index.ts ShortVideoHorizontal out/video-horizontal.mp4"
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.509",
+    "@payloadcms/db-sqlite": "^3.88.0",
+    "@payloadcms/next": "^3.88.0",
+    "@payloadcms/richtext-lexical": "^3.88.0",
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.2",
+    "fumadocs-core": "^16.15.0",
+    "fumadocs-ui": "^16.15.0",
+    "graphql": "^16.14.2",
+    "lucide-react": "^1.33.0",
+    "next": "^16.2.6",
+    "payload": "^3.88.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "remotion": "^4.0.509"
+    "shiki": "^4.4.3",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.2.6",
     "@tailwindcss/postcss": "4.2.1",
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -47,8 +62,7 @@
     "typescript-eslint": "8.59.3",
     "vinext": "1.0.0-beta.2",
     "vite": "8.0.13",
-    "vitest": "4.1.10",
-    "@types/better-sqlite3": "7.6.13"
+    "vitest": "4.1.10"
   },
   "type": "module"
 }
