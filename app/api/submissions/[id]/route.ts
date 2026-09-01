@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../../db/schema";
 import { readJson } from "../../../../lib/request";
+import { ARTICLE_CONTENT_LIMITS } from "../../../../lib/content-markdown";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -100,17 +101,46 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { status, title, summary, content, tags, authorAlias } = body as Record<string, any>;
-  const updateData: Record<string, any> = {
+  const { status, title, summary, contentMarkdown, content, tags, authorAlias } = body as Record<string, unknown>;
+  const updateData: {
+    updatedAt: ReturnType<typeof sql>;
+    status?: "draft" | "reviewing" | "approved" | "published" | "rejected";
+    title?: string;
+    summary?: string;
+    content?: string;
+    authorAlias?: string;
+    tags?: string;
+  } = {
     updatedAt: sql`CURRENT_TIMESTAMP`,
   };
 
-  if (status && ["draft", "reviewing", "approved", "published", "rejected"].includes(status)) {
-    updateData.status = status;
+  if (typeof status === "string" && ["draft", "reviewing", "approved", "published", "rejected"].includes(status)) {
+    updateData.status = status as "draft" | "reviewing" | "approved" | "published" | "rejected";
   }
   if (typeof title === "string" && title.trim()) updateData.title = title.trim();
   if (typeof summary === "string" && summary.trim()) updateData.summary = summary.trim();
-  if (typeof content === "string" && content.trim()) updateData.content = content.trim();
+
+  const newContent = typeof contentMarkdown === "string" ? contentMarkdown.trim() : typeof content === "string" ? content.trim() : null;
+  if (newContent !== null) {
+    if (newContent.length < ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH) {
+      return new Response(
+        JSON.stringify({
+          error: `contentMarkdown must be at least ${ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH} characters`,
+        }),
+        { status: 400 }
+      );
+    }
+    if (newContent.length > ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH) {
+      return new Response(
+        JSON.stringify({
+          error: `contentMarkdown exceeds maximum length of ${ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH} characters`,
+        }),
+        { status: 400 }
+      );
+    }
+    updateData.content = newContent;
+  }
+
   if (typeof authorAlias === "string" && authorAlias.trim()) updateData.authorAlias = authorAlias.trim();
   if (Array.isArray(tags)) updateData.tags = JSON.stringify(tags);
 

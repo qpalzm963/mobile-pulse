@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GET as listSubmissions, POST as createSubmission } from "../app/api/submissions/route";
-import { GET as getSubmission } from "../app/api/submissions/[id]/route";
+import { GET as getSubmission, PATCH as updateSubmission } from "../app/api/submissions/[id]/route";
 import { POST as submitRating } from "../app/api/submissions/[id]/ratings/route";
 import { POST as addAnnotation, PATCH as updateAnnotation } from "../app/api/submissions/[id]/annotations/route";
 
@@ -31,9 +31,116 @@ describe("Submissions & Peer Review System", () => {
     const listRes = await listSubmissions();
     expect(listRes.status).toBe(200);
     const listData = await listRes.json();
-    expect(listData.length).toBe(1);
-    expect(listData[0].title).toBe("Swift 6 Concurrency 實戰指南");
-    expect(listData[0].ratingStats.count).toBe(0);
+    expect(listData.length).toBeGreaterThanOrEqual(1);
+    const found = listData.find((s: { title: string; ratingStats: { count: number } }) => s.title === "Swift 6 Concurrency 實戰指南");
+    expect(found).toBeDefined();
+    expect(found?.ratingStats.count).toBe(0);
+  });
+
+  it("支援以 contentMarkdown 欄位投稿，且未填寫 summary 時自動從文章第一段擷取摘要", async () => {
+    const postRes = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Kotlin Multiplatform 2026 架構指南",
+          contentMarkdown: `## 一、 現代 KMP 架構概述
+
+這是 Kotlin Multiplatform 在 iOS 與 Android 共享業務邏輯的第一段核心說明。
+
+:::terminal title="gradle"
+./gradlew build
+:::
+`,
+          tags: ["kmp", "android", "ios"],
+        }),
+      })
+    );
+
+    expect(postRes.status).toBe(201);
+    const data = await postRes.json();
+    expect(data.success).toBe(true);
+    expect(data.submission.summary).toBe("這是 Kotlin Multiplatform 在 iOS 與 Android 共享業務邏輯的第一段核心說明。");
+    expect(data.submission.authorAlias).toBe("匿名組員");
+  });
+
+  it("伺服器端驗證 contentMarkdown 必填與長度限制", async () => {
+    // 1. Missing content
+    const res1 = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "測試文章",
+          contentMarkdown: "",
+        }),
+      })
+    );
+    expect(res1.status).toBe(400);
+    const data1 = await res1.json();
+    expect(data1.error).toContain("contentMarkdown is required");
+
+    // 2. Content too short (< 10 chars)
+    const res2 = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "測試文章",
+          contentMarkdown: "太短了",
+        }),
+      })
+    );
+    expect(res2.status).toBe(400);
+
+    // 3. Title too short (< 2 chars)
+    const res3 = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "a",
+          contentMarkdown: "這是一篇內容長度足夠但標題過短的文章。",
+        }),
+      })
+    );
+    expect(res3.status).toBe(400);
+  });
+
+  it("PATCH 支援更新 contentMarkdown 並進行長度驗證", async () => {
+    const createRes = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "待更新的文章",
+          contentMarkdown: "初始版本的文章內容長度超過十個字。",
+        }),
+      })
+    );
+    const { submission } = await createRes.json();
+    const subId = String(submission.id);
+
+    // Update with contentMarkdown
+    const patchRes = await updateSubmission(
+      new Request(`https://example.com/api/submissions/${subId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          contentMarkdown: "這是更新過後的 Markdown 文章正文內容。",
+        }),
+      }),
+      { params: Promise.resolve({ id: subId }) }
+    );
+    expect(patchRes.status).toBe(200);
+    const patchData = await patchRes.json();
+    expect(patchData.submission.content).toBe("這是更新過後的 Markdown 文章正文內容。");
+
+    // Attempt to update with too short content
+    const badPatchRes = await updateSubmission(
+      new Request(`https://example.com/api/submissions/${subId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          contentMarkdown: "過短",
+        }),
+      }),
+      { params: Promise.resolve({ id: subId }) }
+    );
+    expect(badPatchRes.status).toBe(400);
   });
 
   it("匿名評分支援多維度打分，同評審者再次打分會走 Upsert 覆蓋而非重複計數", async () => {

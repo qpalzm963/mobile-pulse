@@ -2,6 +2,10 @@ import { sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../db/schema";
 import { readJson } from "../../../lib/request";
+import {
+  ARTICLE_CONTENT_LIMITS,
+  extractSummaryFromMarkdown,
+} from "../../../lib/content-markdown";
 
 export async function GET() {
   const db = getDb();
@@ -81,10 +85,48 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { title, summary, content, authorAlias, tags, status } = body as Record<string, any>;
+  const { title, summary, contentMarkdown, content, authorAlias, tags, status } = body as Record<string, unknown>;
+  const rawContent = (typeof contentMarkdown === "string" ? contentMarkdown : typeof content === "string" ? content : "").trim();
 
-  if (!title || typeof title !== "string" || !summary || typeof summary !== "string" || !content || typeof content !== "string") {
-    return new Response(JSON.stringify({ error: "Missing required fields: title, summary, content" }), { status: 400 });
+  // Validate Title
+  if (!title || typeof title !== "string" || title.trim().length < ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH) {
+    return new Response(
+      JSON.stringify({ error: `Title is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH} characters` }),
+      { status: 400 }
+    );
+  }
+  if (title.trim().length > ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH) {
+    return new Response(
+      JSON.stringify({ error: `Title cannot exceed ${ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH} characters` }),
+      { status: 400 }
+    );
+  }
+
+  // Validate Content (Markdown)
+  if (!rawContent || rawContent.length < ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH) {
+    return new Response(
+      JSON.stringify({
+        error: `contentMarkdown is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH} characters`,
+      }),
+      { status: 400 }
+    );
+  }
+  if (rawContent.length > ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH) {
+    return new Response(
+      JSON.stringify({
+        error: `contentMarkdown exceeds maximum length of ${ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH} characters`,
+      }),
+      { status: 400 }
+    );
+  }
+
+  // Determine Summary with fallback
+  let finalSummary = typeof summary === "string" ? summary.trim() : "";
+  if (!finalSummary) {
+    finalSummary = extractSummaryFromMarkdown(rawContent, ARTICLE_CONTENT_LIMITS.MAX_SUMMARY_LENGTH);
+  }
+  if (!finalSummary) {
+    finalSummary = title.trim();
   }
 
   const rawSlug = title
@@ -103,8 +145,8 @@ export async function POST(request: Request) {
       .values({
         slug: finalSlug,
         title: title.trim(),
-        summary: summary.trim(),
-        content: content.trim(),
+        summary: finalSummary,
+        content: rawContent,
         authorAlias: typeof authorAlias === "string" && authorAlias.trim() ? authorAlias.trim() : "匿名組員",
         tags: Array.isArray(tags) ? JSON.stringify(tags) : "[]",
         status: status === "draft" ? "draft" : "reviewing",
