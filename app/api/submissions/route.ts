@@ -5,6 +5,7 @@ import { readJson } from "../../../lib/request";
 import {
   ARTICLE_CONTENT_LIMITS,
   extractSummaryFromMarkdown,
+  validateArticleInput,
 } from "../../../lib/content-markdown";
 
 export async function GET() {
@@ -85,40 +86,16 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { title, summary, contentMarkdown, content, authorAlias, tags, status } = body as Record<string, unknown>;
-  const rawContent = (typeof contentMarkdown === "string" ? contentMarkdown : typeof content === "string" ? content : "").trim();
+  const { title, summary, contentMarkdown, authorAlias, tags, status } = body as Record<string, unknown>;
 
-  // Validate Title
-  if (!title || typeof title !== "string" || title.trim().length < ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH) {
-    return new Response(
-      JSON.stringify({ error: `Title is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH} characters` }),
-      { status: 400 }
-    );
-  }
-  if (title.trim().length > ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH) {
-    return new Response(
-      JSON.stringify({ error: `Title cannot exceed ${ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH} characters` }),
-      { status: 400 }
-    );
+  // Strict Validation: New submissions must provide contentMarkdown (arbitrary HTML via legacy 'content' is blocked)
+  const validation = validateArticleInput({ title, summary, contentMarkdown });
+  if (!validation.isValid) {
+    return new Response(JSON.stringify({ error: validation.error }), { status: 400 });
   }
 
-  // Validate Content (Markdown)
-  if (!rawContent || rawContent.length < ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH) {
-    return new Response(
-      JSON.stringify({
-        error: `contentMarkdown is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH} characters`,
-      }),
-      { status: 400 }
-    );
-  }
-  if (rawContent.length > ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH) {
-    return new Response(
-      JSON.stringify({
-        error: `contentMarkdown exceeds maximum length of ${ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH} characters`,
-      }),
-      { status: 400 }
-    );
-  }
+  const cleanTitle = (title as string).trim();
+  const rawContent = (contentMarkdown as string).trim();
 
   // Determine Summary with fallback
   let finalSummary = typeof summary === "string" ? summary.trim() : "";
@@ -126,10 +103,10 @@ export async function POST(request: Request) {
     finalSummary = extractSummaryFromMarkdown(rawContent, ARTICLE_CONTENT_LIMITS.MAX_SUMMARY_LENGTH);
   }
   if (!finalSummary) {
-    finalSummary = title.trim();
+    finalSummary = cleanTitle;
   }
 
-  const rawSlug = title
+  const rawSlug = cleanTitle
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
@@ -144,7 +121,7 @@ export async function POST(request: Request) {
       .insert(submissions)
       .values({
         slug: finalSlug,
-        title: title.trim(),
+        title: cleanTitle,
         summary: finalSummary,
         content: rawContent,
         authorAlias: typeof authorAlias === "string" && authorAlias.trim() ? authorAlias.trim() : "匿名組員",
@@ -153,7 +130,18 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    return Response.json({ success: true, submission: inserted[0] }, { status: 201 });
+    const sub = inserted[0];
+    return Response.json(
+      {
+        success: true,
+        submission: {
+          ...sub,
+          contentMarkdown: sub.content,
+          content: sub.content, // Deprecated alias
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Failed to create submission:", error);
     return new Response(JSON.stringify({ error: "Database error" }), { status: 500 });

@@ -244,6 +244,32 @@ main {
   color: var(--accent);
 }
 
+/* ── Rich Markdown Styles & Shortcodes ───────────────────── */
+.rich-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .rich-compare-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.rich-table-wrapper {
+  margin: 24px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rich-markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
 /* ── Feed & Article List ─────────────────────────────────── */
 .feed {
   padding: 44px 56px 100px;

@@ -65,6 +65,18 @@ $ npm test
     expect(React.isValidElement(element)).toBe(true);
   });
 
+  it("能解析並渲染標準 Markdown 表格", () => {
+    const tableMd = `
+| 項目 | 說明 | 狀態 |
+| :--- | :---: | ---: |
+| 模組 A | 核心功能 | 穩定 |
+| 模組 B | 擴充介面 | 測試中 |
+`;
+    const element = RichMarkdownRenderer({ content: tableMd });
+    expect(element).not.toBeNull();
+    expect(React.isValidElement(element)).toBe(true);
+  });
+
   it("當 content 為空時回傳 null", () => {
     expect(RichMarkdownRenderer({ content: "" })).toBeNull();
   });

@@ -8,14 +8,14 @@ const REVIEWER_A = "aaaaaaaa-1111-4222-8333-444444444444";
 const REVIEWER_B = "bbbbbbbb-1111-4222-8333-444444444444";
 
 describe("Submissions & Peer Review System", () => {
-  it("投稿成功建立並能被清單查詢", async () => {
+  it("投稿成功建立並能被清單查詢，且回傳 contentMarkdown 欄位", async () => {
     const postRes = await createSubmission(
       new Request("https://example.com/api/submissions", {
         method: "POST",
         body: JSON.stringify({
           title: "Swift 6 Concurrency 實戰指南",
           summary: "徹底搞懂 Data Isolation 與 Sendable 規則",
-          content: "# 01 / 背景\n\n這是一篇關於 Swift 6 的文章。\n\n## 02 / Actor 模型\n深入拆解 Actor 執行序隔離。",
+          contentMarkdown: "# 01 / 背景\n\n這是一篇關於 Swift 6 的文章。\n\n## 02 / Actor 模型\n深入拆解 Actor 執行序隔離。",
           authorAlias: "iOS 工程師 A",
           tags: ["ios", "engineering"],
           status: "reviewing",
@@ -27,6 +27,8 @@ describe("Submissions & Peer Review System", () => {
     const postData = await postRes.json();
     expect(postData.success).toBe(true);
     expect(postData.submission.id).toBeDefined();
+    expect(postData.submission.contentMarkdown).toContain("Swift 6");
+    expect(postData.submission.content).toBe(postData.submission.contentMarkdown); // Deprecated alias
 
     const listRes = await listSubmissions();
     expect(listRes.status).toBe(200);
@@ -35,6 +37,15 @@ describe("Submissions & Peer Review System", () => {
     const found = listData.find((s: { title: string; ratingStats: { count: number } }) => s.title === "Swift 6 Concurrency 實戰指南");
     expect(found).toBeDefined();
     expect(found?.ratingStats.count).toBe(0);
+
+    // Verify GET detail returns contentMarkdown
+    const getRes = await getSubmission(
+      new Request(`https://example.com/api/submissions/${postData.submission.id}`),
+      { params: Promise.resolve({ id: String(postData.submission.id) }) }
+    );
+    expect(getRes.status).toBe(200);
+    const getData = await getRes.json();
+    expect(getData.contentMarkdown).toBe(postData.submission.contentMarkdown);
   });
 
   it("支援以 contentMarkdown 欄位投稿，且未填寫 summary 時自動從文章第一段擷取摘要", async () => {
@@ -63,14 +74,14 @@ describe("Submissions & Peer Review System", () => {
     expect(data.submission.authorAlias).toBe("匿名組員");
   });
 
-  it("伺服器端驗證 contentMarkdown 必填與長度限制", async () => {
-    // 1. Missing content
+  it("禁止新投稿繞過 contentMarkdown 注入 legacy HTML，並驗證各欄位邊界", async () => {
+    // 1. Missing contentMarkdown (even if legacy content is passed)
     const res1 = await createSubmission(
       new Request("https://example.com/api/submissions", {
         method: "POST",
         body: JSON.stringify({
           title: "測試文章",
-          contentMarkdown: "",
+          content: "<div>任意未過濾 HTML</div>",
         }),
       })
     );
@@ -101,9 +112,24 @@ describe("Submissions & Peer Review System", () => {
       })
     );
     expect(res3.status).toBe(400);
+
+    // 4. Summary too long (> 300 chars)
+    const res4 = await createSubmission(
+      new Request("https://example.com/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "正常標題",
+          summary: "x".repeat(301),
+          contentMarkdown: "這是一篇內容長度足夠的文章內容。",
+        }),
+      })
+    );
+    expect(res4.status).toBe(400);
+    const data4 = await res4.json();
+    expect(data4.error).toContain("Summary cannot exceed 300 characters");
   });
 
-  it("PATCH 支援更新 contentMarkdown 並進行長度驗證", async () => {
+  it("PATCH 支援更新 contentMarkdown 並進行共用 validator 長度驗證", async () => {
     const createRes = await createSubmission(
       new Request("https://example.com/api/submissions", {
         method: "POST",
@@ -128,7 +154,7 @@ describe("Submissions & Peer Review System", () => {
     );
     expect(patchRes.status).toBe(200);
     const patchData = await patchRes.json();
-    expect(patchData.submission.content).toBe("這是更新過後的 Markdown 文章正文內容。");
+    expect(patchData.submission.contentMarkdown).toBe("這是更新過後的 Markdown 文章正文內容聲稱。".slice(0, 21));
 
     // Attempt to update with too short content
     const badPatchRes = await updateSubmission(
@@ -151,7 +177,7 @@ describe("Submissions & Peer Review System", () => {
         body: JSON.stringify({
           title: "Flutter 3.44 Impeller 深度剖析",
           summary: "深入探討 Vulkan 著色器管線",
-          content: "Flutter 3.44 帶來的 Impeller 渲染引擎更新...",
+          contentMarkdown: "Flutter 3.44 帶來的 Impeller 渲染引擎更新深入解說...",
         }),
       })
     );
@@ -225,7 +251,7 @@ describe("Submissions & Peer Review System", () => {
         body: JSON.stringify({
           title: "Bruno vs Postman 選型實踐",
           summary: "離線優先與 Git-first 的 API 客戶端",
-          content: "我們為什麼放棄了傳統雲端 API 工具...",
+          contentMarkdown: "我們為什麼放棄了傳統雲端 API 工具...",
         }),
       })
     );

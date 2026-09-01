@@ -38,6 +38,7 @@ MOBILE PULSE 支援常見 GitHub Flavored Markdown 元素：
 | `- 清單` | 無序清單項目 | `- 盤點全域變數` |
 | `1. 清單` | 有序步驟清單 | `1. 升級 Swift 6` |
 | `---` | 分隔線 | 分割重要章節 |
+| `| 表頭 |` | 標準資料表格 (支援靠左/置中/靠右) | `| 標題 1 | 標題 2 |` |
 | ` ```lang ` | 語法高亮程式碼區塊 | 支援 swift, dart, ts, json, bash 等 |
 
 ---
@@ -101,17 +102,17 @@ error: passing argument of non-sendable type 'UserProfile'
   - `type`: `"info"` (預設藍) \| `"warn"` (黃) \| `"danger"` (紅) \| `"tip"` (綠/主題藍)
 
 ### 3.6 圖片插圖 (`:::image`)
-標準化圖片容器，支援圖片 ID（供後續 Media Collection 對齊）、圖片 URL、說明文字（Caption）與無障礙替代文字（Alt）。
+標準化圖片容器，以 Media ID 為正式主鍵規範（對齊 Issue #2 Media Collection 與圖片上傳流程），並支援說明文字（Caption）與無障礙替代文字（Alt）。
 
 ```markdown
-:::image src="https://images.unsplash.com/photo-1555066931-4365d14bab8c" alt="架構示意圖" caption="圖 1：Swift 6 靜態記憶體隔離模型" :::
+:::image id="media_123" alt="架構示意圖" caption="圖 1：Swift 6 靜態記憶體隔離模型" :::
 ```
 * 參數：
-  - `src`: 圖片 URL 或路徑
-  - `id`: Media 資源 ID（例如 `media_123`，未來 Payload Media 整合用）
-  - `alt`: 圖片替代文字（無障礙）
+  - `id`: Media 資源 ID（正式規範必填，由 Media Collection 產出，如 `media_123`）
+  - `alt`: 圖片替代文字（無障礙說明）
   - `caption`: 圖片下方說明文字
   - `width`: 寬度限制（選填，如 `800px`）
+  - `src`: 圖片 URL（僅作為 legacy 舊格式或內部相容 fallback，新文章請一律使用 `id`）
 
 ### 3.7 動態互動元件 (`:::interactive`)
 掛載系統註冊的 React 動態互動式架構圖或教學模組。

@@ -53,7 +53,6 @@ export default function SubmitArticlePage() {
           title: title.trim(),
           summary: summary.trim(),
           contentMarkdown: content.trim(),
-          content: content.trim(), // backward compatibility
           authorAlias: authorAlias.trim() || "匿名組員",
           tags: selectedTags,
           status: targetStatus,

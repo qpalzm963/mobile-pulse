@@ -68,6 +68,7 @@ interface Block {
     | "ul"
     | "ol"
     | "hr"
+    | "table"
     | "terminal"
     | "compare"
     | "timeline"
@@ -80,6 +81,11 @@ interface Block {
   meta?: Record<string, string>;
   lines?: string[];
   items?: string[];
+  tableData?: {
+    headers: string[];
+    alignments: ("left" | "center" | "right")[];
+    rows: string[][];
+  };
 }
 
 function splitContentIntoBlocks(raw: string): Block[] {
@@ -229,7 +235,53 @@ function splitContentIntoBlocks(raw: string): Block[] {
       continue;
     }
 
-    // 8. Standard paragraph (accumulate until blank line or special block)
+    // 8. Markdown Table
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1].trim())
+    ) {
+      const headerLine = trimmed;
+      const delimiterLine = lines[i + 1].trim();
+
+      const parseRow = (str: string) => {
+        let clean = str.trim();
+        if (clean.startsWith("|")) clean = clean.slice(1);
+        if (clean.endsWith("|")) clean = clean.slice(0, -1);
+        return clean.split("|").map((cell) => cell.trim());
+      };
+
+      const headers = parseRow(headerLine);
+      const delimiterCells = parseRow(delimiterLine);
+
+      const alignments: ("left" | "center" | "right")[] = delimiterCells.map((cell) => {
+        const leftAlign = cell.startsWith(":");
+        const rightAlign = cell.endsWith(":");
+        if (leftAlign && rightAlign) return "center";
+        if (rightAlign) return "right";
+        return "left";
+      });
+
+      const tableRows: string[][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim() && lines[i].trim().includes("|")) {
+        tableRows.push(parseRow(lines[i]));
+        i++;
+      }
+
+      blocks.push({
+        type: "table",
+        raw: "",
+        tableData: {
+          headers,
+          alignments,
+          rows: tableRows,
+        },
+      });
+      continue;
+    }
+
+    // 9. Standard paragraph (accumulate until blank line or special block)
     const paraLines: string[] = [line];
     i++;
     while (
@@ -241,7 +293,8 @@ function splitContentIntoBlocks(raw: string): Block[] {
       !lines[i].trim().startsWith("> ") &&
       !/^[-*+]\s+/.test(lines[i].trim()) &&
       !/^\d+\.\s+/.test(lines[i].trim()) &&
-      !/^(\*{3,}|-{3,}|_{3,})$/.test(lines[i].trim())
+      !/^(\*{3,}|-{3,}|_{3,})$/.test(lines[i].trim()) &&
+      !(lines[i].trim().includes("|") && i + 1 < lines.length && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1].trim()))
     ) {
       paraLines.push(lines[i]);
       i++;
@@ -449,6 +502,67 @@ function renderBlock(block: Block, index: number): React.ReactNode {
         />
       );
 
+    case "table": {
+      const { headers = [], alignments = [], rows = [] } = block.tableData || {};
+      return (
+        <div key={index} className="rich-table-wrapper">
+          <table
+            className="rich-markdown-table"
+            style={{
+              borderCollapse: "collapse",
+              border: "1px solid var(--rule)",
+              borderRadius: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <thead>
+              <tr style={{ background: "var(--bg-subtle)", borderBottom: "2px solid var(--rule)" }}>
+                {headers.map((h, hIdx) => (
+                  <th
+                    key={hIdx}
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--ink)",
+                      textAlign: alignments[hIdx] || "left",
+                      borderRight: hIdx < headers.length - 1 ? "1px solid var(--rule)" : undefined,
+                    }}
+                  >
+                    {renderInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rIdx) => (
+                <tr
+                  key={rIdx}
+                  style={{
+                    borderBottom: rIdx < rows.length - 1 ? "1px solid var(--rule)" : undefined,
+                    background: rIdx % 2 === 1 ? "var(--bg-subtle)" : "#ffffff",
+                  }}
+                >
+                  {row.map((cell, cIdx) => (
+                    <td
+                      key={cIdx}
+                      style={{
+                        padding: "10px 14px",
+                        color: "var(--ink-body)",
+                        textAlign: alignments[cIdx] || "left",
+                        borderRight: cIdx < row.length - 1 ? "1px solid var(--rule)" : undefined,
+                      }}
+                    >
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
     case "code": {
       const lang = block.meta?.lang;
       return (
@@ -551,11 +665,9 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return (
         <div
           key={index}
+          className="rich-compare-grid"
           style={{
             margin: "24px 0",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "16px",
           }}
         >
           {/* Before Column */}

@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { submissionAnnotations, submissionRatings, submissions } from "../../../../db/schema";
 import { readJson } from "../../../../lib/request";
-import { ARTICLE_CONTENT_LIMITS } from "../../../../lib/content-markdown";
+import { validateArticleInput } from "../../../../lib/content-markdown";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -68,6 +68,8 @@ export async function GET(request: Request, { params }: Params) {
     return Response.json(
       {
         ...sub,
+        contentMarkdown: sub.content,
+        content: sub.content, // Deprecated alias
         tags: JSON.parse(sub.tags || "[]"),
         ratingStats: ratingSummary[0] || {
           count: 0,
@@ -101,7 +103,14 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { status, title, summary, contentMarkdown, content, tags, authorAlias } = body as Record<string, unknown>;
+  const { status, title, summary, contentMarkdown, tags, authorAlias } = body as Record<string, unknown>;
+
+  // Unified validation for PATCH
+  const validation = validateArticleInput({ title, summary, contentMarkdown }, { isPatch: true });
+  if (!validation.isValid) {
+    return new Response(JSON.stringify({ error: validation.error }), { status: 400 });
+  }
+
   const updateData: {
     updatedAt: ReturnType<typeof sql>;
     status?: "draft" | "reviewing" | "approved" | "published" | "rejected";
@@ -119,28 +128,7 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   if (typeof title === "string" && title.trim()) updateData.title = title.trim();
   if (typeof summary === "string" && summary.trim()) updateData.summary = summary.trim();
-
-  const newContent = typeof contentMarkdown === "string" ? contentMarkdown.trim() : typeof content === "string" ? content.trim() : null;
-  if (newContent !== null) {
-    if (newContent.length < ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH) {
-      return new Response(
-        JSON.stringify({
-          error: `contentMarkdown must be at least ${ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH} characters`,
-        }),
-        { status: 400 }
-      );
-    }
-    if (newContent.length > ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH) {
-      return new Response(
-        JSON.stringify({
-          error: `contentMarkdown exceeds maximum length of ${ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH} characters`,
-        }),
-        { status: 400 }
-      );
-    }
-    updateData.content = newContent;
-  }
-
+  if (typeof contentMarkdown === "string" && contentMarkdown.trim()) updateData.content = contentMarkdown.trim();
   if (typeof authorAlias === "string" && authorAlias.trim()) updateData.authorAlias = authorAlias.trim();
   if (Array.isArray(tags)) updateData.tags = JSON.stringify(tags);
 
@@ -152,7 +140,15 @@ export async function PATCH(request: Request, { params }: Params) {
       .where(eq(submissions.id, subId))
       .returning();
 
-    return Response.json({ success: true, submission: updated[0] });
+    const sub = updated[0];
+    return Response.json({
+      success: true,
+      submission: {
+        ...sub,
+        contentMarkdown: sub.content,
+        content: sub.content, // Deprecated alias
+      },
+    });
   } catch (error) {
     console.error("Failed to update submission:", error);
     return new Response(JSON.stringify({ error: "Database error" }), { status: 500 });

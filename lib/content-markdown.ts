@@ -54,6 +54,10 @@ export function extractSummaryFromMarkdown(content: string, maxLength: number = 
     // Skip image markdown
     if (trimmed.startsWith("![")) continue;
 
+    // Skip table lines
+    if (/^\s*\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(trimmed)) continue;
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) continue;
+
     // If we have an empty line and we already collected some paragraph lines, that completes the first paragraph
     if (!trimmed) {
       if (paragraphLines.length > 0) {
@@ -106,6 +110,75 @@ export const ARTICLE_CONTENT_LIMITS = {
   MAX_SUMMARY_LENGTH: 300,
 };
 
+/**
+ * Shared validator for article inputs across POST, PATCH, and MCP endpoints.
+ */
+export function validateArticleInput(
+  input: {
+    title?: unknown;
+    summary?: unknown;
+    contentMarkdown?: unknown;
+  },
+  options: { isPatch?: boolean } = {}
+): { isValid: boolean; error?: string } {
+  const { isPatch = false } = options;
+
+  // 1. Validate Title
+  if (!isPatch || input.title !== undefined) {
+    if (
+      !input.title ||
+      typeof input.title !== "string" ||
+      input.title.trim().length < ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH
+    ) {
+      return {
+        isValid: false,
+        error: `Title is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_TITLE_LENGTH} characters`,
+      };
+    }
+    if (input.title.trim().length > ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH) {
+      return {
+        isValid: false,
+        error: `Title cannot exceed ${ARTICLE_CONTENT_LIMITS.MAX_TITLE_LENGTH} characters`,
+      };
+    }
+  }
+
+  // 2. Validate Summary (if provided)
+  if (input.summary !== undefined && input.summary !== null && input.summary !== "") {
+    if (typeof input.summary !== "string") {
+      return { isValid: false, error: "Summary must be a string" };
+    }
+    if (input.summary.trim().length > ARTICLE_CONTENT_LIMITS.MAX_SUMMARY_LENGTH) {
+      return {
+        isValid: false,
+        error: `Summary cannot exceed ${ARTICLE_CONTENT_LIMITS.MAX_SUMMARY_LENGTH} characters`,
+      };
+    }
+  }
+
+  // 3. Validate Content (Markdown)
+  if (!isPatch || input.contentMarkdown !== undefined) {
+    if (
+      !input.contentMarkdown ||
+      typeof input.contentMarkdown !== "string" ||
+      input.contentMarkdown.trim().length < ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH
+    ) {
+      return {
+        isValid: false,
+        error: `contentMarkdown is required and must be at least ${ARTICLE_CONTENT_LIMITS.MIN_CONTENT_LENGTH} characters`,
+      };
+    }
+    if (input.contentMarkdown.trim().length > ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH) {
+      return {
+        isValid: false,
+        error: `contentMarkdown exceeds maximum length of ${ARTICLE_CONTENT_LIMITS.MAX_CONTENT_LENGTH} characters`,
+      };
+    }
+  }
+
+  return { isValid: true };
+}
+
 export const MARKDOWN_AI_PROMPT_TEMPLATE = `請針對 [你的技術主題] 撰寫一篇深度技術文章，並輸出為符合「MOBILE PULSE」標準的 Markdown 格式（含自訂 Shortcodes）：
 
 【MOBILE PULSE 排版與 Shortcode 規範】
@@ -144,7 +217,7 @@ $ flutter test --coverage
 :::
 
 7. 圖片插圖（:::image）：
-:::image src="https://example.com/arch.png" alt="系統架構圖" caption="圖 1：現代化架構邊界示意" :::
+:::image id="media_arch_01" alt="系統架構圖" caption="圖 1：現代化架構邊界示意" :::
 `;
 
 export const SAMPLE_MARKDOWN = `當 Swift 6 將嚴格並發檢查（Strict Concurrency）提升為強制編譯門檻，過往依賴開發者自律的執行期防禦已徹底退場。本文將帶你繞過編譯警告的表面修補陷阱，從核心隔離邊界與現代化無競態架構出發，完成大型代碼庫的平滑升級。
@@ -185,5 +258,5 @@ note: class 'UserProfile' does not conform to the 'Sendable' protocol
 嚴格並發檢查不是編譯器強加的枷鎖，而是現代系統在多核架構下實現零數據競態的基石。
 :::
 
-:::image src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80" alt="現代架構工作流" caption="圖 1：Swift 6 靜態隔離邊界與記憶體模型" :::
+:::image id="media_swift6_arch" alt="現代架構工作流" caption="圖 1：Swift 6 靜態隔離邊界與記憶體模型" :::
 `;
