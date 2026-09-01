@@ -7,6 +7,7 @@ import { buildConfig } from "payload";
 import { fileURLToPath } from "url";
 
 import { Articles } from "./payload/collections/Articles";
+import { Media } from "./payload/collections/Media";
 import { Tags } from "./payload/collections/Tags";
 import { Users } from "./payload/collections/Users";
 
@@ -39,7 +40,7 @@ export default buildConfig({
       ],
     },
   },
-  collections: [Articles, Tags, Users],
+  collections: [Articles, Tags, Users, Media],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || "local-dev-payload-secret-mobile-pulse-987654321",
   typescript: {

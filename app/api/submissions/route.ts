@@ -18,6 +18,7 @@ export async function GET() {
         title: submissions.title,
         summary: submissions.summary,
         authorAlias: submissions.authorAlias,
+        coverImageId: submissions.coverImageId,
         tags: submissions.tags,
         status: submissions.status,
         createdAt: submissions.createdAt,
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { title, summary, contentMarkdown, authorAlias, tags, status } = body as Record<string, unknown>;
+  const { title, summary, contentMarkdown, coverImageId, authorAlias, tags, status } = body as Record<string, unknown>;
 
   // Strict Validation: New submissions must provide contentMarkdown (arbitrary HTML via legacy 'content' is blocked)
   const validation = validateArticleInput({ title, summary, contentMarkdown });
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
         title: cleanTitle,
         summary: finalSummary,
         content: rawContent,
+        coverImageId: typeof coverImageId === "string" && coverImageId.trim() ? coverImageId.trim() : null,
         authorAlias: typeof authorAlias === "string" && authorAlias.trim() ? authorAlias.trim() : "匿名組員",
         tags: Array.isArray(tags) ? JSON.stringify(tags) : "[]",
         status: status === "draft" ? "draft" : "reviewing",

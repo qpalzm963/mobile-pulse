@@ -103,7 +103,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
-  const { status, title, summary, contentMarkdown, tags, authorAlias } = body as Record<string, unknown>;
+  const { status, title, summary, contentMarkdown, coverImageId, tags, authorAlias } = body as Record<string, unknown>;
 
   // Unified validation for PATCH
   const validation = validateArticleInput({ title, summary, contentMarkdown }, { isPatch: true });
@@ -117,6 +117,7 @@ export async function PATCH(request: Request, { params }: Params) {
     title?: string;
     summary?: string;
     content?: string;
+    coverImageId?: string | null;
     authorAlias?: string;
     tags?: string;
   } = {
@@ -129,6 +130,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (typeof title === "string" && title.trim()) updateData.title = title.trim();
   if (typeof summary === "string" && summary.trim()) updateData.summary = summary.trim();
   if (typeof contentMarkdown === "string" && contentMarkdown.trim()) updateData.content = contentMarkdown.trim();
+  if (typeof coverImageId === "string") updateData.coverImageId = coverImageId.trim() || null;
   if (typeof authorAlias === "string" && authorAlias.trim()) updateData.authorAlias = authorAlias.trim();
   if (Array.isArray(tags)) updateData.tags = JSON.stringify(tags);
 

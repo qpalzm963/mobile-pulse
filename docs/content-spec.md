@@ -105,14 +105,20 @@ error: passing argument of non-sendable type 'UserProfile'
 標準化圖片容器，以 Media ID 為正式主鍵規範（對齊 Issue #2 Media Collection 與圖片上傳流程），並支援說明文字（Caption）與無障礙替代文字（Alt）。
 
 ```markdown
-:::image id="media_123" alt="架構示意圖" caption="圖 1：Swift 6 靜態記憶體隔離模型" :::
+:::image id="media_123" alt="架構示意圖" caption="圖 1：Swift 6 靜態記憶體隔離模型" size="normal" :::
 ```
 * 參數：
   - `id`: Media 資源 ID（正式規範必填，由 Media Collection 產出，如 `media_123`）
-  - `alt`: 圖片替代文字（無障礙說明）
-  - `caption`: 圖片下方說明文字
-  - `width`: 寬度限制（選填，如 `800px`）
+  - `alt`: 圖片替代文字（無障礙說明與 SEO）
+  - `caption`: 圖片下方說明文字（選填）
+  - `size`: 尺寸預設檔（選填，支援 `small` (420px) \| `normal` (680px, 預設) \| `wide` (900px) \| `full` (100%)）
+  - `width`: 自訂寬度限制（選填，如 `800px`）
   - `src`: 圖片 URL（僅作為 legacy 舊格式或內部相容 fallback，新文章請一律使用 `id`）
+
+* 上傳規範：
+  - 支援格式：PNG, JPEG, WebP, GIF, SVG
+  - 單檔大小上限：10MB
+  - 儲存位置：伺服器持久化儲存目錄 `/media`，對應 API 端點 `/api/media/:id`
 
 ### 3.7 動態互動元件 (`:::interactive`)
 掛載系統註冊的 React 動態互動式架構圖或教學模組。

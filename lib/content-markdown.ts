@@ -3,6 +3,7 @@ export interface ArticleInput {
   summary?: string;
   tags?: string[];
   contentMarkdown: string;
+  coverImageId?: string;
   authorAlias?: string;
   status?: "draft" | "reviewing" | "approved" | "published" | "rejected";
 }

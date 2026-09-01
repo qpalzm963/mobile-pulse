@@ -803,26 +803,39 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       const src = block.meta?.src || (block.meta?.id ? `/api/media/${block.meta.id}` : "");
       const alt = block.meta?.alt || block.meta?.caption || "文章插圖";
       const caption = block.meta?.caption;
-      const width = block.meta?.width || "100%";
+      const size = block.meta?.size?.toLowerCase();
+      
+      const sizeMap: Record<string, string> = {
+        small: "420px",
+        normal: "680px",
+        wide: "900px",
+        full: "100%",
+      };
+
+      const maxWidth = block.meta?.width || (size && sizeMap[size]) || "100%";
 
       return (
         <figure
           key={index}
+          className="rich-image-figure"
           style={{
-            margin: "28px 0",
+            margin: "32px 0",
             textAlign: "center",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
+            width: "100%",
           }}
         >
           {src ? (
             <img
               src={src}
               alt={alt}
+              loading="lazy"
               style={{
-                maxWidth: width,
-                maxHeight: "520px",
+                width: "100%",
+                maxWidth,
+                maxHeight: "560px",
                 objectFit: "contain",
                 borderRadius: "8px",
                 border: "1px solid var(--rule)",
@@ -833,7 +846,7 @@ function renderBlock(block: Block, index: number): React.ReactNode {
             <div
               style={{
                 width: "100%",
-                maxWidth: "600px",
+                maxWidth: maxWidth !== "100%" ? maxWidth : "600px",
                 padding: "36px 20px",
                 background: "var(--bg-subtle)",
                 border: "1px dashed var(--rule)",
