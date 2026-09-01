@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const submitImmediately = status !== "draft";
+    const submitImmediately = status === "reviewing";
     const sub = await SubmissionService.createDraft({
       title: title as string,
       summary: typeof summary === "string" ? summary : undefined,

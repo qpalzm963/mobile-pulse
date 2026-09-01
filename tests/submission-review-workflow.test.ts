@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import { migrateDrizzleSubmissionsToPayload } from "../scripts/migrate-drizzle-submissions-to-payload";
 import { PATCH as patchSubmissionApi } from "../app/api/submissions/[id]/route";
+import { POST as uploadMedia } from "../app/api/media/route";
 
 const REVIEWER_1 = "11111111-2222-4333-8444-555555555555";
 const REVIEWER_2 = "99999999-2222-4333-8444-555555555555";
@@ -294,22 +295,32 @@ describe("Submission & Review Workflow Unified in Payload CMS (Issue #7)", () =>
   });
 
   it("10. PATCH /api/submissions/[id] modifying only title preserves existing coverImageId", async () => {
-    // Create a mock media item in Payload
-    const payload = await getPayload({ config });
-    const media = await payload.create({
-      collection: "media",
-      data: {
-        alt: "Test Cover Image",
-      },
-    });
+    const pngBuffer = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const formData = new FormData();
+    const file = new File([pngBuffer], "cover_test.png", { type: "image/png" });
+    formData.append("file", file);
+    formData.append("alt", "Test Cover Image");
+
+    const mediaRes = await uploadMedia(
+      new Request("https://example.com/api/media", {
+        method: "POST",
+        body: formData,
+      })
+    );
+    expect(mediaRes.status).toBe(201);
+    const mediaData = await mediaRes.json();
+    const mediaId = String(mediaData.media.id);
 
     const sub = await SubmissionService.createDraft({
       title: "Cover Image Preservation Test",
       contentMarkdown: "# Cover Image Test\n\nTesting that updating title alone does not wipe coverImage.",
-      coverImageId: String(media.id),
+      coverImageId: mediaId,
     });
 
-    expect(sub.coverImageId).toBe(String(media.id));
+    expect(sub.coverImageId).toBe(mediaId);
 
     // PATCH only title
     const patchRes = await patchSubmissionApi(
@@ -323,7 +334,7 @@ describe("Submission & Review Workflow Unified in Payload CMS (Issue #7)", () =>
     expect(patchRes.status).toBe(200);
     const updatedSub = await SubmissionService.getSubmission(sub.id);
     expect(updatedSub?.title).toBe("New Preserved Title");
-    expect(updatedSub?.coverImageId).toBe(String(media.id));
+    expect(updatedSub?.coverImageId).toBe(mediaId);
   });
 
   it("11. Drizzle to Payload migration is idempotent with no data loss and preserves timestamps", async () => {
