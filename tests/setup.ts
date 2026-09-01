@@ -4,7 +4,8 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPayload } from "payload";
 import payloadConfig from "../payload.config";
-import { ARTICLES, TAGS } from "../data/articles";
+import { TAGS } from "../data/articles";
+import { SEED_ARTICLES } from "../data/seed-articles";
 
 // Ensure local storage directories exist
 mkdirSync(resolve(".data"), { recursive: true });
@@ -38,7 +39,7 @@ if (tagCount.totalDocs === 0) {
 
   const artCount = await payload.count({ collection: "articles" });
   if (artCount.totalDocs === 0) {
-    for (const art of ARTICLES) {
+    for (const art of SEED_ARTICLES) {
       const tagIds = art.tags.map((t) => tagMap.get(t)).filter(Boolean) as (number | string)[];
       await payload.create({
         collection: "articles",
@@ -47,15 +48,14 @@ if (tagCount.totalDocs === 0) {
           slug: art.slug,
           summary: art.summary,
           eyebrow: art.eyebrow,
-          author: art.author,
-          readTime: art.readTime,
+          author: art.author || "MOBILE PULSE 編輯部",
+          readTime: art.readTime || "5 MIN READ",
           publishedAt: art.publishedAt
             ? new Date(art.publishedAt.replace(/\./g, "-")).toISOString()
             : new Date().toISOString(),
           status: "published",
-          interactiveComponent: art.interactiveComponent,
           tags: tagIds,
-          contentMarkdown: `# ${art.title}\n\n${art.summary}`,
+          contentMarkdown: art.contentMarkdown,
         },
       });
     }

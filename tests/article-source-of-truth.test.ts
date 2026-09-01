@@ -180,4 +180,20 @@ describe("Payload as Sole Article Source of Truth (Issue #5)", () => {
       expect(existsSync(fullPath)).toBe(false);
     }
   });
+
+  it("ensures all migrated articles have full rich contentMarkdown and not placeholders", async () => {
+    const slugs = [
+      "ai-agent-security-sandbox-audit",
+      "app-dev-weekly-2026-08-13",
+      "bruno-api-client-git-first",
+      "google-a2ui-agents-speak-ui",
+    ];
+
+    for (const slug of slugs) {
+      const article = await getPublishedArticleBySlug(slug);
+      expect(article).not.toBeNull();
+      expect(article?.contentMarkdown.length).toBeGreaterThan(300);
+      expect(article?.contentMarkdown).not.toContain("本文已同步遷移至 Payload CMS 動態內容系統");
+    }
+  });
 });

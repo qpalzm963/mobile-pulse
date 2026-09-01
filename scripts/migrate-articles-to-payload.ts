@@ -1,6 +1,22 @@
 import { getPayload } from "payload";
 import config from "../payload.config";
-import { ARTICLES, TAGS } from "../data/articles";
+import { TAGS } from "../data/articles";
+import { SEED_ARTICLES } from "../data/seed-articles";
+
+function toIsoDate(dateVal: unknown): string {
+  if (!dateVal) return new Date().toISOString();
+  if (typeof dateVal === "string") {
+    const formatted = dateVal.replace(/\./g, "-");
+    const parsed = new Date(formatted);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    return dateVal.toISOString();
+  }
+  return new Date().toISOString();
+}
 
 async function run() {
   console.log("🚀 Initializing Payload...");
@@ -59,8 +75,8 @@ async function run() {
     console.log("  ✓ Admin user exists: admin@mobilepulse.dev");
   }
 
-  console.log("📰 3. Migrating Articles...");
-  for (const article of ARTICLES) {
+  console.log("📰 3. Migrating Articles (Upserting Full Rich Content)...");
+  for (const article of SEED_ARTICLES) {
     const existing = await payload.find({
       collection: "articles",
       where: {
@@ -73,8 +89,32 @@ async function run() {
       .map((t) => tagMap.get(t))
       .filter((id): id is number | string => id !== undefined);
 
+    const isoDate = toIsoDate(article.publishedAt);
+
     if (existing.docs.length > 0) {
-      console.log(`  ✓ Article already exists: ${article.title} (${article.slug})`);
+      const doc = existing.docs[0];
+      const existingMarkdown = (doc.contentMarkdown as string) || "";
+      const isPlaceholder =
+        !existingMarkdown ||
+        existingMarkdown.includes("本文已同步遷移至 Payload CMS") ||
+        existingMarkdown.length < 200;
+
+      await payload.update({
+        collection: "articles",
+        id: doc.id,
+        data: {
+          title: article.title,
+          summary: article.summary,
+          eyebrow: article.eyebrow || (doc.eyebrow as string) || null,
+          author: article.author || (doc.author as string) || "MOBILE PULSE 編輯部",
+          readTime: article.readTime || (doc.readTime as string) || "5 MIN READ",
+          publishedAt: isoDate,
+          status: "published",
+          tags: relatedTagIds,
+          ...(isPlaceholder ? { contentMarkdown: article.contentMarkdown } : {}),
+        },
+      });
+      console.log(`  ✓ Updated existing article with ISO date and verified content: ${article.title} (${article.slug})`);
     } else {
       await payload.create({
         collection: "articles",
@@ -82,21 +122,20 @@ async function run() {
           title: article.title,
           slug: article.slug,
           summary: article.summary,
-          publishedAt: article.publishedAt
-            ? new Date(article.publishedAt.replace(/\./g, "-")).toISOString()
-            : new Date().toISOString(),
+          eyebrow: article.eyebrow,
+          publishedAt: isoDate,
           status: "published",
-          author: "MOBILE PULSE 編輯部",
-          readTime: "6 MIN READ",
-          tags: relatedTagIds as (number | string)[],
-          contentMarkdown: `# ${article.title}\n\n${article.summary}\n\n:::callout type="tip"\n本文已同步遷移至 Payload CMS 動態內容系統。\n:::\n`,
+          author: article.author || "MOBILE PULSE 編輯部",
+          readTime: article.readTime || "5 MIN READ",
+          tags: relatedTagIds,
+          contentMarkdown: article.contentMarkdown,
         },
       });
-      console.log(`  + Created article: ${article.title} (${article.slug})`);
+      console.log(`  + Created article with full rich content: ${article.title} (${article.slug})`);
     }
   }
 
-  console.log("✨ Migration completed successfully!");
+  console.log("✨ Migration and Content Verification completed successfully!");
   process.exit(0);
 }
 
