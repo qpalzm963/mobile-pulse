@@ -44,6 +44,18 @@ export function insertTextAtCursor(
 }
 
 /**
+ * Escapes quotes and backslashes in shortcode attribute values.
+ */
+export function escapeShortcodeAttr(value: string): string {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+}
+
+/**
  * Extracts a concise plain-text summary from Markdown content.
  * Skips headings, code blocks, and custom shortcodes.
  */

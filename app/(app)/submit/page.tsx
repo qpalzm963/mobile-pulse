@@ -7,6 +7,7 @@ import { TAGS } from "@/data/articles";
 import {
   MARKDOWN_AI_PROMPT_TEMPLATE,
   SAMPLE_MARKDOWN,
+  escapeShortcodeAttr,
   extractSummaryFromMarkdown,
   insertTextAtCursor,
 } from "@/lib/content-markdown";
@@ -101,10 +102,11 @@ export default function SubmitArticlePage() {
         setCoverImageId(media.id);
         setCoverImageUrl(media.url);
       } else {
-        // Insert Shortcode into Markdown content at cursor position
-        const captionAttr = media.caption ? ` caption="${media.caption}"` : "";
+        // Insert Shortcode into Markdown content at cursor position with escaped attributes
+        const escapedAlt = escapeShortcodeAttr(media.alt || "文章插圖");
+        const captionAttr = media.caption ? ` caption="${escapeShortcodeAttr(media.caption)}"` : "";
         const sizeAttr = imageSizeInput !== "normal" ? ` size="${imageSizeInput}"` : "";
-        const shortcode = `:::image id="${media.id}" alt="${media.alt}"${captionAttr}${sizeAttr} :::`;
+        const shortcode = `:::image id="${media.id}" alt="${escapedAlt}"${captionAttr}${sizeAttr} :::`;
         
         const { newText, newCursorPos } = insertTextAtCursor(
           content,

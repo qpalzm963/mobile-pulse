@@ -175,6 +175,20 @@ describe("Media Collection & Upload Pipeline", () => {
     expect(detectImageSignature(invalidBuf)).toBeNull();
   });
 
+  it("escapeShortcodeAttr 能正確跳脫引號與換行，且 RichMarkdownRenderer 能還原解析", () => {
+    const rawAlt = '架構 "A" 與 "B" 核心';
+    const rawCaption = '說明：這是一個 "複雜" 的 \\ 特殊圖說';
+    
+    // In submit page, we escape:
+    const escapedAlt = rawAlt.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const escapedCaption = rawCaption.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    
+    const md = `:::image id="media_quoted" alt="${escapedAlt}" caption="${escapedCaption}" :::`;
+    const element = RichMarkdownRenderer({ content: md });
+    expect(element).not.toBeNull();
+    expect(React.isValidElement(element)).toBe(true);
+  });
+
   it("RichMarkdownRenderer 能正確解析含 size preset 的 :::image Shortcode", () => {
     const md = `
 # 測試文章

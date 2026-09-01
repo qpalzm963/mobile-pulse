@@ -316,11 +316,16 @@ function splitContentIntoBlocks(raw: string): Block[] {
 
 function parseShortcodeParams(paramStr: string): Record<string, string> {
   const result: Record<string, string> = {};
-  const regex = /([a-zA-Z0-9_-]+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  // Matches key="value with \"escaped quotes\"" or key='value' or key=unquoted
+  const regex = /([a-zA-Z0-9_-]+)=(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|(\S+))/g;
   let match;
   while ((match = regex.exec(paramStr)) !== null) {
     const key = match[1];
-    const val = match[2] ?? match[3] ?? match[4] ?? "";
+    const rawVal = match[2] ?? match[3] ?? match[4] ?? "";
+    const val = rawVal
+      .replace(/\\(["'\\])/g, "$1")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
     result[key] = val;
   }
   return result;

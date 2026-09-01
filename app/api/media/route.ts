@@ -12,7 +12,8 @@ const ALLOWED_MIME_TYPES = [
   "image/webp",
 ];
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB file limit
+const MAX_REQUEST_SIZE = 12 * 1024 * 1024; // 12MB request limit (allows multipart boundaries, headers, alt/caption metadata)
 
 /**
  * Validates actual binary image signatures (Magic Bytes) to prevent spoofed MIME types.
@@ -89,13 +90,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // Early check Content-Length header before processing stream
+  // Early check Content-Length header before processing stream (with 12MB buffer for multipart overhead)
   const contentLength = request.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > MAX_FILE_SIZE) {
+  if (contentLength && parseInt(contentLength, 10) > MAX_REQUEST_SIZE) {
     return Response.json(
       {
         success: false,
-        error: `Request size exceeds the 10MB limit (size: ${(parseInt(contentLength, 10) / 1024 / 1024).toFixed(2)}MB)`,
+        error: `Request size exceeds the 12MB limit (size: ${(parseInt(contentLength, 10) / 1024 / 1024).toFixed(2)}MB)`,
       },
       { status: 400 }
     );
