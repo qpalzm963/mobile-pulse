@@ -346,12 +346,17 @@ export class SubmissionService {
     let coverImageRel: string | number | null = null;
     if (input.coverImageId && String(input.coverImageId).trim()) {
       const mediaId = String(input.coverImageId).trim();
-      const mediaDoc = await payload.findByID({
-        collection: "media",
-        id: Number(mediaId) || mediaId,
-      });
+      let mediaDoc = null;
+      try {
+        mediaDoc = await payload.findByID({
+          collection: "media",
+          id: Number(mediaId) || mediaId,
+        });
+      } catch {
+        mediaDoc = null;
+      }
       if (!mediaDoc) {
-        throw new Error(`Referenced coverImage "${input.coverImageId}" does not exist in Media collection.`);
+        throw new Error(`Referenced coverImageId "${input.coverImageId}" does not exist in Media collection`);
       }
       coverImageRel = mediaDoc.id;
     }
@@ -439,12 +444,18 @@ export class SubmissionService {
 
     if (input.coverImageId !== undefined) {
       if (input.coverImageId && String(input.coverImageId).trim()) {
-        const mediaDoc = await payload.findByID({
-          collection: "media",
-          id: Number(input.coverImageId) || input.coverImageId,
-        });
+        const mediaId = String(input.coverImageId).trim();
+        let mediaDoc = null;
+        try {
+          mediaDoc = await payload.findByID({
+            collection: "media",
+            id: Number(mediaId) || mediaId,
+          });
+        } catch {
+          mediaDoc = null;
+        }
         if (!mediaDoc) {
-          throw new Error(`Referenced coverImage "${input.coverImageId}" does not exist in Media collection.`);
+          throw new Error(`Referenced coverImageId "${input.coverImageId}" does not exist in Media collection`);
         }
         updateData.coverImage = mediaDoc.id;
       } else {

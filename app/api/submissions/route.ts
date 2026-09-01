@@ -1,10 +1,18 @@
+import { validateArticleInput } from "../../../lib/content-markdown";
 import { readJson } from "../../../lib/request";
 import { SubmissionService } from "../../../lib/submissions";
 
-export async function GET(request: Request) {
+export async function GET(request?: Request) {
   try {
-    const url = new URL(request.url);
-    const statusParam = url.searchParams.get("status");
+    let statusParam: string | null = null;
+    if (request && request.url) {
+      try {
+        const url = new URL(request.url);
+        statusParam = url.searchParams.get("status");
+      } catch {
+        // ignore url parsing error if relative
+      }
+    }
     const list = await SubmissionService.listSubmissions({
       status: statusParam ? (statusParam.split(",") as any) : undefined,
     });
@@ -36,20 +44,17 @@ export async function POST(request: Request) {
     status,
   } = body as Record<string, unknown>;
 
-  if (typeof title !== "string" || !title.trim()) {
-    return new Response(JSON.stringify({ error: "文章標題不可為空" }), { status: 400 });
-  }
-
-  if (typeof contentMarkdown !== "string" || !contentMarkdown.trim()) {
-    return new Response(JSON.stringify({ error: "Markdown 正文內容不可為空" }), { status: 400 });
+  const validation = validateArticleInput({ title, summary, contentMarkdown });
+  if (!validation.isValid) {
+    return new Response(JSON.stringify({ error: validation.error }), { status: 400 });
   }
 
   try {
     const submitImmediately = status !== "draft";
     const sub = await SubmissionService.createDraft({
-      title,
+      title: title as string,
       summary: typeof summary === "string" ? summary : undefined,
-      contentMarkdown,
+      contentMarkdown: contentMarkdown as string,
       authorAlias: typeof authorAlias === "string" ? authorAlias : undefined,
       tags: Array.isArray(tags) ? tags : undefined,
       coverImageId: typeof coverImageId === "string" ? coverImageId : null,
