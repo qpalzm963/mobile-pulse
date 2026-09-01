@@ -7,10 +7,14 @@ export const SubmissionReviews: CollectionConfig = {
     defaultColumns: ["submission", "reviewerToken", "scoreDepth", "scoreClarity", "scorePracticality", "createdAt"],
   },
   access: {
-    read: () => true,
-    create: ({ req }) => Boolean(req.user),
-    update: ({ req }) => Boolean(req.user),
-    delete: ({ req }) => Boolean(req.user),
+    // Rating aggregates are exposed through SubmissionService; keep the
+    // credential-bearing collection private to authenticated Payload users.
+    read: () => false,
+    // Must be created/updated through SubmissionService.addOrUpdateReview.
+    // The service uses trusted local API calls; direct REST/admin writes are denied.
+    create: () => false,
+    update: () => false,
+    delete: () => false,
   },
   fields: [
     {
@@ -27,6 +31,16 @@ export const SubmissionReviews: CollectionConfig = {
       required: true,
       index: true,
       label: "審稿者 Token",
+      // Hide reviewerToken from public read to prevent token leakage
+      access: {
+        read: () => false,
+        create: () => true,
+        update: () => false, // Token is immutable once set
+      },
+      admin: {
+        readOnly: true,
+        description: "Reviewer token is private — hidden from public API responses",
+      },
     },
     {
       name: "priorKnowledge",

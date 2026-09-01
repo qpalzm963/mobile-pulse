@@ -40,8 +40,8 @@ describe("Submissions & Peer Review System", () => {
 
     // Verify GET detail returns contentMarkdown
     const getRes = await getSubmission(
-      new Request(`https://example.com/api/submissions/${postData.submission.id}`),
-      { params: Promise.resolve({ id: String(postData.submission.id) }) }
+      new Request(`https://example.com/api/submissions/${postData.submission.slug}`),
+      { params: Promise.resolve({ id: String(postData.submission.slug) }) }
     );
     expect(getRes.status).toBe(200);
     const getData = await getRes.json();
@@ -140,7 +140,7 @@ describe("Submissions & Peer Review System", () => {
       })
     );
     const { submission } = await createRes.json();
-    const subId = String(submission.id);
+    const subId = String(submission.slug);
 
     // Update with contentMarkdown
     const patchRes = await updateSubmission(
@@ -182,7 +182,7 @@ describe("Submissions & Peer Review System", () => {
       })
     );
     const { submission } = await subRes.json();
-    const subIdStr = String(submission.id);
+    const subIdStr = String(submission.slug);
 
     // 2. Reviewer A rates (4, 5, 5)
     const rate1 = await submitRating(
@@ -256,7 +256,7 @@ describe("Submissions & Peer Review System", () => {
       })
     );
     const { submission } = await subRes.json();
-    const subIdStr = String(submission.id);
+    const subIdStr = String(submission.slug);
 
     // 2. Add an in-line annotation
     const addRes = await addAnnotation(

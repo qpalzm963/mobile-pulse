@@ -175,7 +175,10 @@ describe("工作台與 API Client 多輪複驗 (E2E Lifecycle Verification)", ()
 
     if (submissions.length > 0) {
       const firstSub = submissions[0];
-      const detail = await client.getSubmission(firstSub.id, "test-reviewer-token");
+      // New submissions are routed by slug. Numeric values are reserved for
+      // backward-compatible Drizzle legacyId lookup and must not be treated
+      // as Payload's internal ID.
+      const detail = await client.getSubmission(firstSub.slug, "test-reviewer-token");
       expect(detail).toBeDefined();
       expect(detail.title).toBeDefined();
       expect(detail.ratingStats).toBeDefined();

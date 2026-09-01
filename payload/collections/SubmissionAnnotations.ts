@@ -7,10 +7,14 @@ export const SubmissionAnnotations: CollectionConfig = {
     defaultColumns: ["submission", "selectedText", "comment", "status", "createdAt"],
   },
   access: {
-    read: () => true,
-    create: ({ req }) => Boolean(req.user),
-    update: ({ req }) => Boolean(req.user),
-    delete: ({ req }) => Boolean(req.user),
+    // Annotation reads are exposed through SubmissionService; do not expose
+    // the internal collection (or its token-bearing records) publicly.
+    read: () => false,
+    // Must be created/updated through SubmissionService annotation methods.
+    // The service uses trusted local API calls; direct REST/admin writes are denied.
+    create: () => false,
+    update: () => false,
+    delete: () => false,
   },
   fields: [
     {
@@ -26,6 +30,16 @@ export const SubmissionAnnotations: CollectionConfig = {
       type: "text",
       required: true,
       label: "審稿者 Token",
+      // Hide reviewerToken from public to prevent token discovery
+      access: {
+        read: () => false,
+        create: () => true,
+        update: () => false, // Token is immutable once set
+      },
+      admin: {
+        readOnly: true,
+        description: "Reviewer token is private — hidden from public API responses",
+      },
     },
     {
       name: "selectedText",

@@ -39,7 +39,6 @@ export interface SubmissionRatingStats {
 export interface SubmissionAnnotationItem {
   id: string | number;
   submissionId: string | number;
-  reviewerToken: string;
   selectedText: string;
   textOffsetStart: number;
   textOffsetEnd: number;
@@ -51,7 +50,6 @@ export interface SubmissionAnnotationItem {
 export interface SubmissionReviewItem {
   id: string | number;
   submissionId: string | number;
-  reviewerToken: string;
   priorKnowledge: "new_knowledge" | "familiar_surface" | "already_expert";
   scoreDepth: number;
   scoreClarity: number;
@@ -63,6 +61,7 @@ export interface SubmissionReviewItem {
 
 export interface SubmissionSummary {
   id: string | number;
+  legacyId?: number | null;
   slug: string;
   title: string;
   summary: string;
@@ -166,6 +165,7 @@ async function resolveTagRelationships(
 
 function parseSubmissionDoc(doc: Record<string, unknown>): {
   id: string | number;
+  legacyId: number | null;
   slug: string;
   title: string;
   summary: string;
@@ -236,6 +236,7 @@ function parseSubmissionDoc(doc: Record<string, unknown>): {
 
   return {
     id: (doc.id as string | number) ?? "",
+    legacyId: doc.legacyId !== undefined && doc.legacyId !== null ? Number(doc.legacyId) : null,
     slug: (doc.slug as string) ?? "",
     title: (doc.title as string) ?? "",
     summary: (doc.summary as string) ?? "",
@@ -256,7 +257,14 @@ function parseSubmissionDoc(doc: Record<string, unknown>): {
 }
 
 /**
- * 輔助函式：依 legacyId (優先以相容舊連結), slug, 或 Payload ID 搜尋單一 Submission Document
+ * Routing rules for Submission lookups (Blocker 2 fix):
+ *   - Pure numeric input is always treated as legacyId (old Drizzle URL: /reviews/1)
+ *     New Payload submissions never have numeric-only slugs, so there is NO collision possible.
+ *   - Non-numeric input (slug string) uses slug lookup only
+ *     New Submissions always use slug as their canonical URL identifier.
+ *
+ * This eliminates the ID namespace collision: numeric ID space == legacyId space.
+ * New submissions must be accessed by slug, not by Payload's internal numeric ID.
  */
 async function findSubmissionDoc(
   payload: Awaited<ReturnType<typeof getPayload>>,
@@ -264,9 +272,15 @@ async function findSubmissionDoc(
 ): Promise<Record<string, unknown> | null> {
   const queryStr = String(idOrSlug).trim();
   const numId = Number(queryStr);
+  // Treat every integer-only identifier as a legacy Drizzle ID.  This keeps
+  // numeric Payload IDs out of the public route namespace while still
+  // accepting old links such as `/reviews/001`.
+  const isNumeric = /^\d+$/.test(queryStr);
 
-  // 1. If numeric, check legacyId first to preserve historical Drizzle URLs without collision
-  if (!isNaN(numId) && numId > 0) {
+  if (isNumeric) {
+    // Numeric input exclusively uses legacyId lookup (old Drizzle submission URLs)
+    // We deliberately do NOT fall back to Payload internal ID to prevent namespace collision
+    if (numId <= 0) return null;
     const byLegacy = await payload.find({
       collection: "submissions",
       where: { legacyId: { equals: numId } },
@@ -276,9 +290,11 @@ async function findSubmissionDoc(
     if (byLegacy.docs.length > 0) {
       return byLegacy.docs[0] as unknown as Record<string, unknown>;
     }
+    // Numeric input with no matching legacyId is not found
+    return null;
   }
 
-  // 2. Search by unique slug
+  // Non-numeric input uses slug lookup (canonical URL for new submissions)
   const bySlug = await payload.find({
     collection: "submissions",
     where: { slug: { equals: queryStr } },
@@ -289,22 +305,30 @@ async function findSubmissionDoc(
     return bySlug.docs[0] as unknown as Record<string, unknown>;
   }
 
-  // 3. Search directly by Payload ID
-  if (!isNaN(numId) && numId > 0) {
-    try {
-      const byId = await payload.findByID({
-        collection: "submissions",
-        id: numId,
-        depth: 2,
-      });
-      if (byId) return byId as unknown as Record<string, unknown>;
-    } catch {
-      // not found
-    }
-  }
-
   return null;
 }
+
+/**
+ * Internal-only lookup by Payload ID (used within SubmissionService after creation)
+ * This bypasses the public routing rules and looks up directly by Payload's internal ID.
+ */
+async function findSubmissionDocById(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  payloadId: string | number
+): Promise<Record<string, unknown> | null> {
+  try {
+    const doc = await payload.findByID({
+      collection: "submissions",
+      id: payloadId as any,
+      depth: 2,
+    });
+    if (doc) return doc as unknown as Record<string, unknown>;
+  } catch {
+    // not found
+  }
+  return null;
+}
+
 
 export class SubmissionService {
   /**
@@ -398,7 +422,7 @@ export class SubmissionService {
       },
     });
 
-    return (await this.getSubmission(created.id))!;
+    return (await this.getSubmissionById(created.id))!;
   }
 
   /**
@@ -479,7 +503,7 @@ export class SubmissionService {
       data: updateData,
     });
 
-    return (await this.getSubmission(existing.id as string | number))!;
+    return (await this.getSubmissionById(existing.id as string | number))!;
   }
 
   /**
@@ -524,7 +548,6 @@ export class SubmissionService {
         myRating = {
           id: r.id as string | number,
           submissionId,
-          reviewerToken: String(r.reviewerToken),
           priorKnowledge: (r.priorKnowledge as SubmissionReviewItem["priorKnowledge"]) || "new_knowledge",
           scoreDepth: d,
           scoreClarity: c,
@@ -565,7 +588,6 @@ export class SubmissionService {
       return {
         id: a.id as string | number,
         submissionId,
-        reviewerToken: String(a.reviewerToken),
         selectedText: (a.selectedText as string) || "",
         textOffsetStart: Number(a.textOffsetStart) || 0,
         textOffsetEnd: Number(a.textOffsetEnd) || 0,
@@ -583,6 +605,91 @@ export class SubmissionService {
         total: annotations.length,
         open: openAnnotationsCount,
       },
+      myRating,
+      annotations,
+    };
+  }
+
+  /**
+   * Internal method: get submission by Payload's native ID (bypasses public routing rules)
+   * Used after create/update operations where we have the native ID.
+   */
+  static async getSubmissionById(
+    payloadId: string | number,
+    reviewerToken?: string | null
+  ): Promise<SubmissionDetail | null> {
+    const payload = await getPayload({ config });
+    const doc = await findSubmissionDocById(payload, payloadId);
+    if (!doc) return null;
+
+    const parsed = parseSubmissionDoc(doc);
+    const submissionId = parsed.id;
+
+    const reviewsResult = await payload.find({
+      collection: "submission-reviews",
+      where: { submission: { equals: submissionId } },
+      limit: 0,
+    });
+
+    const count = reviewsResult.docs.length;
+    let sumDepth = 0, sumClarity = 0, sumPracticality = 0;
+    let myRating: SubmissionReviewItem | null = null;
+
+    for (const rDoc of reviewsResult.docs) {
+      const r = rDoc as unknown as Record<string, unknown>;
+      const d = Number(r.scoreDepth) || 0;
+      const c = Number(r.scoreClarity) || 0;
+      const p = Number(r.scorePracticality) || 0;
+      sumDepth += d; sumClarity += c; sumPracticality += p;
+
+      if (reviewerToken && r.reviewerToken === reviewerToken) {
+        myRating = {
+          id: r.id as string | number,
+          submissionId,
+          priorKnowledge: (r.priorKnowledge as SubmissionReviewItem["priorKnowledge"]) || "new_knowledge",
+          scoreDepth: d, scoreClarity: c, scorePracticality: p,
+          generalFeedback: (r.generalFeedback as string) || null,
+          createdAt: String(r.createdAt),
+          updatedAt: r.updatedAt ? String(r.updatedAt) : undefined,
+        };
+      }
+    }
+
+    const ratingStats: SubmissionRatingStats = {
+      count,
+      avgDepth: count > 0 ? Math.round((sumDepth / count) * 10) / 10 : 0,
+      avgClarity: count > 0 ? Math.round((sumClarity / count) * 10) / 10 : 0,
+      avgPracticality: count > 0 ? Math.round((sumPracticality / count) * 10) / 10 : 0,
+      overallAvg: count > 0 ? Math.round(((sumDepth + sumClarity + sumPracticality) / (count * 3)) * 10) / 10 : 0,
+    };
+
+    const annotationsResult = await payload.find({
+      collection: "submission-annotations",
+      where: { submission: { equals: submissionId } },
+      limit: 0, sort: "createdAt",
+    });
+
+    let openAnnotationsCount = 0;
+    const annotations: SubmissionAnnotationItem[] = annotationsResult.docs.map((aDoc) => {
+      const a = aDoc as unknown as Record<string, unknown>;
+      const status = (a.status as "open" | "resolved") || "open";
+      if (status === "open") openAnnotationsCount++;
+      return {
+        id: a.id as string | number, submissionId,
+        selectedText: (a.selectedText as string) || "",
+        textOffsetStart: Number(a.textOffsetStart) || 0,
+        textOffsetEnd: Number(a.textOffsetEnd) || 0,
+        comment: (a.comment as string) || "",
+        status,
+        createdAt: (a.createdAt as string) || new Date().toISOString(),
+      };
+    });
+
+    return {
+      ...parsed,
+      content: parsed.contentMarkdown,
+      ratingStats,
+      annotationStats: { total: annotations.length, open: openAnnotationsCount },
       myRating,
       annotations,
     };
@@ -709,7 +816,7 @@ export class SubmissionService {
       },
     });
 
-    return (await this.getSubmission(existing.id as string | number))!;
+    return (await this.getSubmissionById(existing.id as string | number))!;
   }
 
   /**
@@ -733,7 +840,7 @@ export class SubmissionService {
       },
     });
 
-    return (await this.getSubmission(existing.id as string | number))!;
+    return (await this.getSubmissionById(existing.id as string | number))!;
   }
 
   /**
@@ -758,7 +865,7 @@ export class SubmissionService {
       },
     });
 
-    return (await this.getSubmission(existing.id as string | number))!;
+    return (await this.getSubmissionById(existing.id as string | number))!;
   }
 
   /**
@@ -782,7 +889,7 @@ export class SubmissionService {
       },
     });
 
-    return (await this.getSubmission(existing.id as string | number))!;
+    return (await this.getSubmissionById(existing.id as string | number))!;
   }
 
   /**
@@ -827,7 +934,7 @@ export class SubmissionService {
       }
 
       if (linkedArticle) {
-        const detail = (await this.getSubmission(existing.id as string | number))!;
+        const detail = (await this.getSubmissionById(existing.id as string | number))!;
         return { submission: detail, article: linkedArticle, alreadyPublished: true };
       }
     }
@@ -848,29 +955,32 @@ export class SubmissionService {
         .filter(Boolean) as (string | number)[];
     }
 
-    // Map coverImage ID
-    let coverImageId: string | number | null = null;
-    if (existing.coverImage) {
-      coverImageId = typeof existing.coverImage === "object" && existing.coverImage !== null
-        ? (existing.coverImage as Record<string, unknown>).id as any
-        : existing.coverImage as any;
-    }
-
-    // Check if article with this slug already exists in Articles collection
-    const existingArticle = await payload.find({
+    // Map coverImage ID from resolved relationship
+    const resolvedCoverImageId: string | number | null = existing.coverImage
+      ? typeof existing.coverImage === "object" && existing.coverImage !== null
+        ? ((existing.coverImage as Record<string, unknown>).id as string | number)
+        : (existing.coverImage as string | number)
+      : null;
+    const existingArticleResult = await payload.find({
       collection: "articles",
       where: { slug: { equals: cleanSlug } },
+      depth: 0,
       limit: 1,
     });
 
     let publishedArticleDoc: Record<string, unknown>;
     let isNewArticle = false;
+    // Snapshot of old article state for rollback compensation if Submission update fails
+    let oldArticleSnapshot: Record<string, unknown> | null = null;
 
-    if (existingArticle.docs.length > 0) {
-      const targetId = existingArticle.docs[0].id;
+    if (existingArticleResult.docs.length > 0) {
+      const targetDoc = existingArticleResult.docs[0] as unknown as Record<string, unknown>;
+      const targetId = targetDoc.id;
+      oldArticleSnapshot = { ...targetDoc }; // Save for rollback
+
       publishedArticleDoc = (await payload.update({
         collection: "articles",
-        id: targetId,
+        id: targetId as any,
         data: {
           title: existing.title,
           slug: cleanSlug,
@@ -882,7 +992,7 @@ export class SubmissionService {
           publishedAt: nowIso,
           status: "published",
           tags: articleTagIds as any,
-          coverImage: coverImageId as any,
+          coverImage: resolvedCoverImageId as any,
         },
       })) as unknown as Record<string, unknown>;
     } else {
@@ -900,12 +1010,12 @@ export class SubmissionService {
           publishedAt: nowIso,
           status: "published",
           tags: articleTagIds as any,
-          coverImage: coverImageId as any,
+          coverImage: resolvedCoverImageId as any,
         },
       })) as unknown as Record<string, unknown>;
     }
 
-    // Update Submission status, publishedAt, and relationship with rollback compensation
+    // Update Submission status with full rollback compensation (Blocker 3 fix)
     try {
       await payload.update({
         collection: "submissions",
@@ -917,20 +1027,70 @@ export class SubmissionService {
         },
       });
     } catch (updateErr) {
+      // Rollback article changes to preserve data consistency
       if (isNewArticle && publishedArticleDoc?.id) {
+        // New article: delete it to undo
         try {
-          await payload.delete({
+          await payload.delete({ collection: "articles", id: publishedArticleDoc.id as any });
+        } catch {
+          console.error("[publishSubmission] rollback: failed to delete newly created article", publishedArticleDoc.id);
+        }
+      } else if (!isNewArticle && oldArticleSnapshot && publishedArticleDoc?.id) {
+        // Existing article was updated: restore original state
+        try {
+          await payload.update({
             collection: "articles",
             id: publishedArticleDoc.id as any,
+            data: {
+              title: oldArticleSnapshot.title,
+              slug: oldArticleSnapshot.slug,
+              summary: oldArticleSnapshot.summary,
+              contentMarkdown: oldArticleSnapshot.contentMarkdown,
+              author: oldArticleSnapshot.author,
+              readTime: oldArticleSnapshot.readTime,
+              eyebrow: oldArticleSnapshot.eyebrow,
+              publishedAt: oldArticleSnapshot.publishedAt,
+              status: oldArticleSnapshot.status,
+              tags: oldArticleSnapshot.tags,
+              coverImage: oldArticleSnapshot.coverImage,
+              ...(Object.prototype.hasOwnProperty.call(oldArticleSnapshot, "createdAt")
+                ? { createdAt: oldArticleSnapshot.createdAt }
+                : {}),
+              ...(Object.prototype.hasOwnProperty.call(oldArticleSnapshot, "updatedAt")
+                ? { updatedAt: oldArticleSnapshot.updatedAt }
+                : {}),
+              ...(Object.prototype.hasOwnProperty.call(oldArticleSnapshot, "interactiveComponent")
+                ? { interactiveComponent: oldArticleSnapshot.interactiveComponent }
+                : {}),
+            },
           });
+          // Payload's update operation refreshes updatedAt unconditionally. If
+          // the adapter is available, restore both timestamp columns directly
+          // so compensation returns the article to its exact prior state.
+          if (payload.db?.updateOne) {
+            const timestampData: Record<string, string> = {};
+            if (typeof oldArticleSnapshot.createdAt === "string") {
+              timestampData.createdAt = oldArticleSnapshot.createdAt;
+            }
+            if (typeof oldArticleSnapshot.updatedAt === "string") {
+              timestampData.updatedAt = oldArticleSnapshot.updatedAt;
+            }
+            if (Object.keys(timestampData).length > 0) {
+              await payload.db.updateOne({
+                collection: "articles",
+                id: publishedArticleDoc.id as any,
+                data: timestampData,
+              });
+            }
+          }
         } catch {
-          // ignore cleanup rollback failure
+          console.error("[publishSubmission] rollback: failed to restore updated article", publishedArticleDoc.id);
         }
       }
       throw new Error(`Failed to update submission status to published: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
     }
 
-    const updatedDetail = (await this.getSubmission(existing.id as string | number))!;
+    const updatedDetail = (await this.getSubmissionById(existing.id as string | number))!;
     return {
       submission: updatedDetail,
       article: publishedArticleDoc,
@@ -1015,12 +1175,11 @@ export class SubmissionService {
       })) as unknown as Record<string, unknown>;
     }
 
-    const updatedSubmission = (await this.getSubmission(subId, token))!;
+    const updatedSubmission = (await this.getSubmissionById(subId, token))!;
     return {
       review: updatedSubmission.myRating || {
         id: reviewDoc.id as string | number,
         submissionId: subId,
-        reviewerToken: token,
         priorKnowledge: (reviewDoc.priorKnowledge as SubmissionReviewItem["priorKnowledge"]) || "new_knowledge",
         scoreDepth: depth,
         scoreClarity: clarity,
@@ -1077,7 +1236,6 @@ export class SubmissionService {
     return {
       id: created.id as string | number,
       submissionId: subId,
-      reviewerToken: token,
       selectedText: input.selectedText.trim(),
       textOffsetStart: Number(input.textOffsetStart) || 0,
       textOffsetEnd: Number(input.textOffsetEnd) || 0,
@@ -1110,7 +1268,6 @@ export class SubmissionService {
     return {
       id: updated.id as string | number,
       submissionId: subRef as string | number,
-      reviewerToken: String(updated.reviewerToken),
       selectedText: (updated.selectedText as string) || "",
       textOffsetStart: Number(updated.textOffsetStart) || 0,
       textOffsetEnd: Number(updated.textOffsetEnd) || 0,

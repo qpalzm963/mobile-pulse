@@ -164,7 +164,9 @@ export default function SubmitArticlePage() {
       }
 
       const data = await res.json();
-      router.push(`/reviews/${data.submission.id}`);
+      router.push(
+        `/reviews/${data.submission.legacyId != null ? data.submission.legacyId : data.submission.slug}`
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "發生錯誤，請稍後再試。";
       setError(message);

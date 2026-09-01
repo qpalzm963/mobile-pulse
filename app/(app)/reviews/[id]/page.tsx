@@ -73,9 +73,13 @@ export default function ReviewDetailPage() {
     setActionLoading(true);
     setActionMessage(null);
 
+    // Keep using the current route identifier so legacy numeric URLs continue to work,
+    // while new submissions use slug-based routes.
+    const apiId = id;
+
     try {
       if (action === "publish") {
-        const res = await fetch(`/api/submissions/${data.id}/publish`, {
+        const res = await fetch(`/api/submissions/${apiId}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
@@ -84,7 +88,7 @@ export default function ReviewDetailPage() {
         setData((prev) => (prev ? { ...prev, status: "published" } : prev));
         setActionMessage("🚀 文章已正式發布至前台！");
       } else {
-        const res = await fetch(`/api/submissions/${data.id}`, {
+        const res = await fetch(`/api/submissions/${apiId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
@@ -346,14 +350,14 @@ export default function ReviewDetailPage() {
 
           {/* Interactive In-line Text Selection Annotator */}
           <SubmissionAnnotator
-            submissionId={data.id}
+            submissionId={id}
             content={data.contentMarkdown || data.content}
             initialAnnotations={data.annotations}
           />
 
           {/* Anonymous Multi-dimensional Rating Card */}
           <SubmissionRatingCard
-            submissionId={data.id}
+            submissionId={id}
             initialStats={data.ratingStats}
             initialMyRating={data.myRating}
             onRatingUpdated={(newStats, myRating) => {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 interface SubmissionItem {
   id: string | number;
+  legacyId?: number | null;
   slug: string;
   title: string;
   summary: string;
@@ -168,7 +169,7 @@ export default function ReviewsLobbyPage() {
 
                   <h3 style={{ margin: "0 0 8px", fontSize: "18px" }}>
                     <Link
-                      href={`/reviews/${item.id}`}
+                      href={`/reviews/${item.legacyId != null ? item.legacyId : item.slug}`}
                       style={{ color: "var(--ink)", textDecoration: "none" }}
                     >
                       {item.title}
@@ -204,7 +205,7 @@ export default function ReviewsLobbyPage() {
                         💬 {item.annotationStats.total} 條劃線備註
                       </span>
                       <Link
-                        href={`/reviews/${item.id}`}
+                        href={`/reviews/${item.legacyId != null ? item.legacyId : item.slug}`}
                         style={{
                           background: "var(--bg-subtle)",
                           border: "1px solid var(--rule)",
