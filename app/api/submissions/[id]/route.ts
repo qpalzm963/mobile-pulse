@@ -2,7 +2,6 @@ import { readJson } from "../../../../lib/request";
 import {
   InvalidStatusTransitionError,
   SubmissionService,
-  type SubmissionStatus,
 } from "../../../../lib/submissions";
 
 type Params = { params: Promise<{ id: string }> };
@@ -43,24 +42,42 @@ export async function PATCH(request: Request, { params }: Params) {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
   }
 
+  const bodyObj = body as Record<string, unknown>;
+
+  // Reject direct status mutation
+  if ("status" in bodyObj) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "Direct status mutation is forbidden. Use workflow actions ('submit', 'request_changes', 'approve', 'reject') or the publish endpoint.",
+      }),
+      { status: 400 }
+    );
+  }
+
   const {
     action,
-    status,
     title,
     summary,
     contentMarkdown,
-    coverImageId,
     tags,
     authorAlias,
-  } = body as Record<string, unknown>;
+  } = bodyObj;
 
   try {
     // 1. If content fields are provided, update draft content
+    const hasCoverImage = "coverImageId" in bodyObj;
+    const coverImageIdVal = hasCoverImage
+      ? typeof bodyObj.coverImageId === "string" && bodyObj.coverImageId.trim().length > 0
+        ? bodyObj.coverImageId.trim()
+        : null
+      : undefined;
+
     const hasContentUpdates =
       title !== undefined ||
       summary !== undefined ||
       contentMarkdown !== undefined ||
-      coverImageId !== undefined ||
+      hasCoverImage ||
       tags !== undefined ||
       authorAlias !== undefined;
 
@@ -69,43 +86,26 @@ export async function PATCH(request: Request, { params }: Params) {
         title: typeof title === "string" ? title : undefined,
         summary: typeof summary === "string" ? summary : undefined,
         contentMarkdown: typeof contentMarkdown === "string" ? contentMarkdown : undefined,
-        coverImageId: typeof coverImageId === "string" ? coverImageId : null,
+        coverImageId: coverImageIdVal,
         tags: Array.isArray(tags) ? tags : undefined,
         authorAlias: typeof authorAlias === "string" ? authorAlias : undefined,
       });
     }
 
-    // 2. Handle state transitions (either via explicit action or requested status)
-    let transitionTarget: SubmissionStatus | null = null;
-
-    if (action === "submit" || action === "submit_for_review") {
-      transitionTarget = "reviewing";
-    } else if (action === "request_changes") {
-      transitionTarget = "changes_requested";
-    } else if (action === "approve") {
-      transitionTarget = "approved";
-    } else if (action === "reject") {
-      transitionTarget = "rejected";
-    } else if (action === "publish") {
-      transitionTarget = "published";
-    } else if (typeof status === "string") {
-      transitionTarget = status as SubmissionStatus;
-    }
-
-    if (transitionTarget) {
-      if (transitionTarget === "reviewing") {
+    // 2. Handle state transition actions
+    if (typeof action === "string" && action.trim().length > 0) {
+      const act = action.trim();
+      if (act === "submit" || act === "submit_for_review") {
         await SubmissionService.submitForReview(id);
-      } else if (transitionTarget === "changes_requested") {
+      } else if (act === "request_changes") {
         await SubmissionService.requestChanges(id);
-      } else if (transitionTarget === "approved") {
+      } else if (act === "approve") {
         await SubmissionService.approveSubmission(id);
-      } else if (transitionTarget === "rejected") {
+      } else if (act === "reject") {
         await SubmissionService.rejectSubmission(id);
-      } else if (transitionTarget === "published") {
-        await SubmissionService.publishSubmission(id);
-      } else if (transitionTarget !== "draft") {
+      } else {
         return new Response(
-          JSON.stringify({ error: `Unsupported target status: ${transitionTarget}` }),
+          JSON.stringify({ error: `Unsupported workflow action: ${act}` }),
           { status: 400 }
         );
       }

@@ -3,11 +3,16 @@ import { getPayload } from "payload";
 import config from "../payload.config";
 import {
   SubmissionService,
-  InvalidStatusTransitionError,
 } from "../lib/submissions";
 import { getPublishedArticleBySlug } from "../lib/articles";
 import { getDb } from "../db";
-import { submissions as drizzleSubmissions } from "../db/schema";
+import {
+  submissions as drizzleSubmissions,
+  submissionRatings as drizzleRatings,
+  submissionAnnotations as drizzleAnnotations,
+} from "../db/schema";
+import { migrateDrizzleSubmissionsToPayload } from "../scripts/migrate-drizzle-submissions-to-payload";
+import { PATCH as patchSubmissionApi } from "../app/api/submissions/[id]/route";
 
 const REVIEWER_1 = "11111111-2222-4333-8444-555555555555";
 const REVIEWER_2 = "99999999-2222-4333-8444-555555555555";
@@ -245,5 +250,145 @@ describe("Submission & Review Workflow Unified in Payload CMS (Issue #7)", () =>
     const byLegacyStr = await SubmissionService.getSubmission("9999");
     expect(byLegacyStr).not.toBeNull();
     expect(byLegacyStr?.title).toBe("Legacy ID Compatibility Test");
+  });
+
+  it("8. updateDraft is strictly forbidden in reviewing, approved, published, or rejected status", async () => {
+    const sub = await SubmissionService.createDraft({
+      title: "Draft Status Restriction Test",
+      contentMarkdown: "# Initial Content\n\nTesting that updateDraft enforces draft or changes_requested.",
+      submitImmediately: true, // initial status: reviewing
+    });
+
+    // In reviewing status, updateDraft should throw error
+    await expect(
+      SubmissionService.updateDraft(sub.id, { title: "Attempted Title Update" })
+    ).rejects.toThrow("Cannot edit submission in 'reviewing' status");
+
+    // Approve the submission
+    await SubmissionService.approveSubmission(sub.id);
+
+    // In approved status, updateDraft should throw error (prevents '審 A 發 B')
+    await expect(
+      SubmissionService.updateDraft(sub.id, { contentMarkdown: "Maliciously modified content" })
+    ).rejects.toThrow("Cannot edit submission in 'approved' status");
+  });
+
+  it("9. PATCH /api/submissions/[id] rejects direct status mutation", async () => {
+    const sub = await SubmissionService.createDraft({
+      title: "API Status Guard Test",
+      contentMarkdown: "# API Status Guard\n\nTesting that client cannot pass direct status to PATCH.",
+      submitImmediately: true,
+    });
+
+    const patchRes = await patchSubmissionApi(
+      new Request(`https://example.com/api/submissions/${sub.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "approved" }),
+      }),
+      { params: Promise.resolve({ id: String(sub.id) }) }
+    );
+
+    expect(patchRes.status).toBe(400);
+    const patchData = await patchRes.json();
+    expect(patchData.error).toContain("Direct status mutation is forbidden");
+  });
+
+  it("10. PATCH /api/submissions/[id] modifying only title preserves existing coverImageId", async () => {
+    // Create a mock media item in Payload
+    const payload = await getPayload({ config });
+    const media = await payload.create({
+      collection: "media",
+      data: {
+        alt: "Test Cover Image",
+      },
+    });
+
+    const sub = await SubmissionService.createDraft({
+      title: "Cover Image Preservation Test",
+      contentMarkdown: "# Cover Image Test\n\nTesting that updating title alone does not wipe coverImage.",
+      coverImageId: String(media.id),
+    });
+
+    expect(sub.coverImageId).toBe(String(media.id));
+
+    // PATCH only title
+    const patchRes = await patchSubmissionApi(
+      new Request(`https://example.com/api/submissions/${sub.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "New Preserved Title" }),
+      }),
+      { params: Promise.resolve({ id: String(sub.id) }) }
+    );
+
+    expect(patchRes.status).toBe(200);
+    const updatedSub = await SubmissionService.getSubmission(sub.id);
+    expect(updatedSub?.title).toBe("New Preserved Title");
+    expect(updatedSub?.coverImageId).toBe(String(media.id));
+  });
+
+  it("11. Drizzle to Payload migration is idempotent with no data loss and preserves timestamps", async () => {
+    const db = getDb();
+    const testLegacyId = 88888;
+    const testSlug = `migration-test-${Date.now()}`;
+    const testCreatedAt = "2026-07-01T10:00:00.000Z";
+
+    // 1. Insert mock data into Drizzle tables
+    await db.insert(drizzleSubmissions).values({
+      id: testLegacyId,
+      slug: testSlug,
+      title: "Drizzle Migration Test Submission",
+      summary: "Testing migration script accuracy",
+      content: "# Drizzle Migration\n\nOriginal content from Drizzle database.",
+      authorAlias: "Drizzle Author",
+      status: "reviewing",
+      tags: JSON.stringify(["ios", "swift"]),
+      createdAt: testCreatedAt,
+      updatedAt: testCreatedAt,
+    }).onConflictDoNothing();
+
+    await db.insert(drizzleRatings).values({
+      submissionId: testLegacyId,
+      reviewerToken: REVIEWER_1,
+      priorKnowledge: "already_expert",
+      scoreDepth: 5,
+      scoreClarity: 5,
+      scorePracticality: 4,
+      generalFeedback: "Drizzle rating comment",
+      createdAt: testCreatedAt,
+      updatedAt: testCreatedAt,
+    }).onConflictDoNothing();
+
+    await db.insert(drizzleAnnotations).values({
+      submissionId: testLegacyId,
+      reviewerToken: REVIEWER_1,
+      selectedText: "Original content",
+      textOffsetStart: 20,
+      textOffsetEnd: 36,
+      comment: "Drizzle annotation comment",
+      status: "open",
+      createdAt: testCreatedAt,
+    }).onConflictDoNothing();
+
+    // 2. Run migration first time
+    const result1 = await migrateDrizzleSubmissionsToPayload();
+    expect(result1.submissionsCount).toBeGreaterThanOrEqual(1);
+
+    // Verify in Payload
+    const migrated1 = await SubmissionService.getSubmission(testLegacyId);
+    expect(migrated1).not.toBeNull();
+    expect(migrated1?.title).toBe("Drizzle Migration Test Submission");
+    expect(migrated1?.ratingStats.count).toBe(1);
+    expect(migrated1?.annotations.length).toBe(1);
+    expect(migrated1?.annotations[0].comment).toBe("Drizzle annotation comment");
+
+    // 3. Run migration second time (Idempotency test)
+    const result2 = await migrateDrizzleSubmissionsToPayload();
+    expect(result2.submissionsCount).toBe(result1.submissionsCount);
+
+    const migrated2 = await SubmissionService.getSubmission(testLegacyId);
+    expect(migrated2).not.toBeNull();
+    expect(migrated2?.title).toBe("Drizzle Migration Test Submission");
+    expect(migrated2?.ratingStats.count).toBe(1); // No duplicated review
+    expect(migrated2?.annotations.length).toBe(1); // No duplicated annotation
   });
 });

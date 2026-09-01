@@ -3,7 +3,11 @@ import config from "../payload.config";
 import { getDb } from "../db";
 import { submissions, submissionRatings, submissionAnnotations } from "../db/schema";
 
-async function run() {
+export async function migrateDrizzleSubmissionsToPayload(): Promise<{
+  submissionsCount: number;
+  ratingsCount: number;
+  annotationsCount: number;
+}> {
   console.log("🚀 Starting Drizzle -> Payload Submission Migration...");
 
   let db;
@@ -11,7 +15,7 @@ async function run() {
     db = getDb();
   } catch (err) {
     console.log("ℹ️ Drizzle database not found or empty, skipping Drizzle migration.");
-    process.exit(0);
+    return { submissionsCount: 0, ratingsCount: 0, annotationsCount: 0 };
   }
 
   const payload = await getPayload({ config });
@@ -29,7 +33,13 @@ async function run() {
   const submissionIdMap = new Map<number, string | number>();
 
   for (const sub of drizzleSubmissions) {
-    const rawTags = JSON.parse(sub.tags || "[]");
+    let rawTags: string[] = [];
+    try {
+      rawTags = JSON.parse(sub.tags || "[]");
+    } catch {
+      rawTags = [];
+    }
+
     const tagIds: (string | number)[] = [];
 
     for (const t of rawTags) {
@@ -69,7 +79,7 @@ async function run() {
       }
     }
 
-    // Check if already in Payload
+    // Match by legacyId first, then slug
     const existing = await payload.find({
       collection: "submissions",
       where: {
@@ -77,6 +87,8 @@ async function run() {
       },
       limit: 1,
     });
+
+    const submittedAtTime = sub.submittedAt || (sub.status !== "draft" ? sub.createdAt : null);
 
     if (existing.docs.length > 0) {
       const docId = existing.docs[0].id;
@@ -93,7 +105,10 @@ async function run() {
           status: sub.status || "reviewing",
           tags: tagIds as any,
           coverImage: coverImageRel as any,
+          submittedAt: submittedAtTime,
           legacyId: sub.id,
+          ...(sub.createdAt ? { createdAt: sub.createdAt } : {}),
+          ...(sub.updatedAt ? { updatedAt: sub.updatedAt } : {}),
         },
       });
       console.log(`  ✓ Updated existing Payload submission: ${sub.title} (legacyId: ${sub.id})`);
@@ -109,8 +124,10 @@ async function run() {
           status: sub.status || "reviewing",
           tags: tagIds as any,
           coverImage: coverImageRel as any,
-          submittedAt: sub.status === "reviewing" ? sub.createdAt : null,
+          submittedAt: submittedAtTime,
           legacyId: sub.id,
+          ...(sub.createdAt ? { createdAt: sub.createdAt } : {}),
+          ...(sub.updatedAt ? { updatedAt: sub.updatedAt } : {}),
         },
       });
       submissionIdMap.set(sub.id, created.id);
@@ -153,6 +170,8 @@ async function run() {
           scoreClarity: rating.scoreClarity,
           scorePracticality: rating.scorePracticality,
           generalFeedback: rating.generalFeedback,
+          ...(rating.createdAt ? { createdAt: rating.createdAt } : {}),
+          ...(rating.updatedAt ? { updatedAt: rating.updatedAt } : {}),
         },
       });
       console.log(`  ✓ Updated rating for submission ${payloadSubId} from ${rating.reviewerToken}`);
@@ -167,6 +186,8 @@ async function run() {
           scoreClarity: rating.scoreClarity,
           scorePracticality: rating.scorePracticality,
           generalFeedback: rating.generalFeedback,
+          ...(rating.createdAt ? { createdAt: rating.createdAt } : {}),
+          ...(rating.updatedAt ? { updatedAt: rating.updatedAt } : {}),
         },
       });
       console.log(`  + Created rating for submission ${payloadSubId} from ${rating.reviewerToken}`);
@@ -187,6 +208,7 @@ async function run() {
     const payloadSubId = submissionIdMap.get(ann.submissionId);
     if (!payloadSubId) continue;
 
+    // Accurate deduplication matching submission, reviewerToken, selectedText, offsets, and comment
     const existingAnn = await payload.find({
       collection: "submission-annotations",
       where: {
@@ -194,12 +216,25 @@ async function run() {
           { submission: { equals: payloadSubId } },
           { reviewerToken: { equals: ann.reviewerToken } },
           { selectedText: { equals: ann.selectedText } },
+          { textOffsetStart: { equals: ann.textOffsetStart } },
+          { textOffsetEnd: { equals: ann.textOffsetEnd } },
+          { comment: { equals: ann.comment } },
         ],
       },
       limit: 1,
     });
 
-    if (existingAnn.docs.length === 0) {
+    if (existingAnn.docs.length > 0) {
+      await payload.update({
+        collection: "submission-annotations",
+        id: existingAnn.docs[0].id,
+        data: {
+          status: ann.status || "open",
+          ...(ann.createdAt ? { createdAt: ann.createdAt } : {}),
+        },
+      });
+      console.log(`  ✓ Updated annotation for submission ${payloadSubId}`);
+    } else {
       await payload.create({
         collection: "submission-annotations",
         data: {
@@ -210,6 +245,7 @@ async function run() {
           textOffsetEnd: ann.textOffsetEnd,
           comment: ann.comment,
           status: ann.status || "open",
+          ...(ann.createdAt ? { createdAt: ann.createdAt } : {}),
         },
       });
       console.log(`  + Created annotation for submission ${payloadSubId}`);
@@ -217,10 +253,23 @@ async function run() {
   }
 
   console.log("✨ Drizzle -> Payload Migration completed successfully!");
-  process.exit(0);
+  return {
+    submissionsCount: drizzleSubmissions.length,
+    ratingsCount: drizzleRatings.length,
+    annotationsCount: drizzleAnnotations.length,
+  };
 }
 
-run().catch((err) => {
-  console.error("❌ Migration failed:", err);
-  process.exit(1);
-});
+// If run directly from CLI
+if (
+  process.argv[1] &&
+  (process.argv[1].endsWith("migrate-drizzle-submissions-to-payload.ts") ||
+    process.argv[1].endsWith("migrate-drizzle-submissions-to-payload.js"))
+) {
+  migrateDrizzleSubmissionsToPayload()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("❌ Migration failed:", err);
+      process.exit(1);
+    });
+}

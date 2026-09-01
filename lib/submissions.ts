@@ -125,7 +125,7 @@ export function isValidStatusTransition(
     case "published":
       return false; // Published is a terminal state
     case "rejected":
-      return false; // Rejected is a terminal state (or requires new draft)
+      return false; // Rejected is a terminal state
     default:
       return false;
   }
@@ -141,7 +141,6 @@ async function resolveTagRelationships(
   for (const t of tagsInput) {
     if (!t || t === "all") continue;
     const clean = String(t).trim();
-    // Check if it's already an existing tagId or name
     const found = await payload.find({
       collection: "tags",
       where: {
@@ -152,7 +151,6 @@ async function resolveTagRelationships(
     if (found.docs.length > 0) {
       tagIds.push(found.docs[0].id);
     } else {
-      // Auto-create tag if not existing
       const created = await payload.create({
         collection: "tags",
         data: {
@@ -258,7 +256,7 @@ function parseSubmissionDoc(doc: Record<string, unknown>): {
 }
 
 /**
- * 輔助函式：依 ID, legacyId, 或 Slug 搜尋單一 Submission Document
+ * 輔助函式：依 legacyId (優先以相容舊連結), slug, 或 Payload ID 搜尋單一 Submission Document
  */
 async function findSubmissionDoc(
   payload: Awaited<ReturnType<typeof getPayload>>,
@@ -267,7 +265,31 @@ async function findSubmissionDoc(
   const queryStr = String(idOrSlug).trim();
   const numId = Number(queryStr);
 
-  // 1. Try finding directly by ID if numeric or valid Payload ID
+  // 1. If numeric, check legacyId first to preserve historical Drizzle URLs without collision
+  if (!isNaN(numId) && numId > 0) {
+    const byLegacy = await payload.find({
+      collection: "submissions",
+      where: { legacyId: { equals: numId } },
+      depth: 2,
+      limit: 1,
+    });
+    if (byLegacy.docs.length > 0) {
+      return byLegacy.docs[0] as unknown as Record<string, unknown>;
+    }
+  }
+
+  // 2. Search by unique slug
+  const bySlug = await payload.find({
+    collection: "submissions",
+    where: { slug: { equals: queryStr } },
+    depth: 2,
+    limit: 1,
+  });
+  if (bySlug.docs.length > 0) {
+    return bySlug.docs[0] as unknown as Record<string, unknown>;
+  }
+
+  // 3. Search directly by Payload ID
   if (!isNaN(numId) && numId > 0) {
     try {
       const byId = await payload.findByID({
@@ -277,28 +299,8 @@ async function findSubmissionDoc(
       });
       if (byId) return byId as unknown as Record<string, unknown>;
     } catch {
-      // not found by direct ID, continue to fallback search
+      // not found
     }
-  }
-
-  // 2. Search by legacyId or slug or string ID
-  const orConditions: Record<string, unknown>[] = [{ slug: { equals: queryStr } }];
-  if (!isNaN(numId) && numId > 0) {
-    orConditions.push({ legacyId: { equals: numId } });
-    orConditions.push({ id: { equals: numId } });
-  }
-
-  const result = await payload.find({
-    collection: "submissions",
-    where: {
-      or: orConditions as any,
-    },
-    depth: 2,
-    limit: 1,
-  });
-
-  if (result.docs.length > 0) {
-    return result.docs[0] as unknown as Record<string, unknown>;
   }
 
   return null;
@@ -317,6 +319,9 @@ export class SubmissionService {
     coverImageId?: string | null;
     submitImmediately?: boolean;
     legacyId?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    submittedAt?: string | null;
   }): Promise<SubmissionDetail> {
     const validation = validateArticleInput({
       title: input.title,
@@ -386,8 +391,10 @@ export class SubmissionService {
         status: initialStatus,
         tags: tagIds as any,
         coverImage: coverImageRel as any,
-        submittedAt: initialStatus === "reviewing" ? nowIso : null,
+        submittedAt: input.submittedAt !== undefined ? input.submittedAt : (initialStatus === "reviewing" ? nowIso : null),
         legacyId: input.legacyId,
+        ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+        ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
       },
     });
 
@@ -395,7 +402,7 @@ export class SubmissionService {
   }
 
   /**
-   * 更新稿件內容（支援 Draft 或 Changes Requested 狀態下的修改）
+   * 更新稿件內容（嚴格限制僅允許在 Draft 或 Changes Requested 狀態下修改）
    */
   static async updateDraft(
     idOrSlug: string | number,
@@ -415,8 +422,10 @@ export class SubmissionService {
     }
 
     const currentStatus = (existing.status as SubmissionStatus) || "draft";
-    if (currentStatus === "published") {
-      throw new Error("Cannot edit a published submission. Modify the published article directly.");
+    if (currentStatus !== "draft" && currentStatus !== "changes_requested") {
+      throw new Error(
+        `Cannot edit submission in '${currentStatus}' status. Content can only be edited in 'draft' or 'changes_requested' status.`
+      );
     }
 
     const validation = validateArticleInput(
@@ -442,8 +451,11 @@ export class SubmissionService {
       updateData.tags = tagIds;
     }
 
+    // Only modify coverImage if explicitly specified (string to update, null to remove)
     if (input.coverImageId !== undefined) {
-      if (input.coverImageId && String(input.coverImageId).trim()) {
+      if (input.coverImageId === null || input.coverImageId === "") {
+        updateData.coverImage = null;
+      } else {
         const mediaId = String(input.coverImageId).trim();
         let mediaDoc = null;
         try {
@@ -458,8 +470,6 @@ export class SubmissionService {
           throw new Error(`Referenced coverImageId "${input.coverImageId}" does not exist in Media collection`);
         }
         updateData.coverImage = mediaDoc.id;
-      } else {
-        updateData.coverImage = null;
       }
     }
 
@@ -610,7 +620,6 @@ export class SubmissionService {
       return [];
     }
 
-    // Batch fetch all reviews and annotations for quick aggregate mapping
     const [allReviews, allAnnotations] = await Promise.all([
       payload.find({ collection: "submission-reviews", limit: 0 }),
       payload.find({ collection: "submission-annotations", limit: 0 }),
@@ -778,7 +787,7 @@ export class SubmissionService {
 
   /**
    * 唯一正式發布流程：Submission -> Payload Article (approved -> published)
-   * 具備完全 Idempotent（冪等性），重複呼叫不會產生重複文章。
+   * 具備原子性保護與完全 Idempotent（冪等性），重複呼叫不會產生重複文章。
    */
   static async publishSubmission(
     idOrSlug: string | number,
@@ -855,9 +864,9 @@ export class SubmissionService {
     });
 
     let publishedArticleDoc: Record<string, unknown>;
+    let isNewArticle = false;
 
     if (existingArticle.docs.length > 0) {
-      // Upsert existing article
       const targetId = existingArticle.docs[0].id;
       publishedArticleDoc = (await payload.update({
         collection: "articles",
@@ -877,7 +886,7 @@ export class SubmissionService {
         },
       })) as unknown as Record<string, unknown>;
     } else {
-      // Create new article
+      isNewArticle = true;
       publishedArticleDoc = (await payload.create({
         collection: "articles",
         data: {
@@ -896,16 +905,30 @@ export class SubmissionService {
       })) as unknown as Record<string, unknown>;
     }
 
-    // Update Submission status, publishedAt, and relationship
-    await payload.update({
-      collection: "submissions",
-      id: existing.id as string | number,
-      data: {
-        status: "published",
-        publishedAt: nowIso,
-        publishedArticle: publishedArticleDoc.id as any,
-      },
-    });
+    // Update Submission status, publishedAt, and relationship with rollback compensation
+    try {
+      await payload.update({
+        collection: "submissions",
+        id: existing.id as string | number,
+        data: {
+          status: "published",
+          publishedAt: nowIso,
+          publishedArticle: publishedArticleDoc.id as any,
+        },
+      });
+    } catch (updateErr) {
+      if (isNewArticle && publishedArticleDoc?.id) {
+        try {
+          await payload.delete({
+            collection: "articles",
+            id: publishedArticleDoc.id as any,
+          });
+        } catch {
+          // ignore cleanup rollback failure
+        }
+      }
+      throw new Error(`Failed to update submission status to published: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
+    }
 
     const updatedDetail = (await this.getSubmission(existing.id as string | number))!;
     return {
@@ -927,6 +950,8 @@ export class SubmissionService {
       scoreClarity: number;
       scorePracticality: number;
       generalFeedback?: string | null;
+      createdAt?: string;
+      updatedAt?: string;
     }
   ): Promise<{ review: SubmissionReviewItem; ratingStats: SubmissionRatingStats }> {
     const payload = await getPayload({ config });
@@ -947,7 +972,6 @@ export class SubmissionService {
       throw new Error("Scores must be integers between 1 and 5");
     }
 
-    // Check if review already exists from this reviewer
     const existingReviews = await payload.find({
       collection: "submission-reviews",
       where: {
@@ -971,6 +995,7 @@ export class SubmissionService {
           scoreClarity: clarity,
           scorePracticality: practicality,
           generalFeedback: input.generalFeedback ? input.generalFeedback.trim() : null,
+          ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
         },
       })) as unknown as Record<string, unknown>;
     } else {
@@ -984,6 +1009,8 @@ export class SubmissionService {
           scoreClarity: clarity,
           scorePracticality: practicality,
           generalFeedback: input.generalFeedback ? input.generalFeedback.trim() : null,
+          ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+          ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
         },
       })) as unknown as Record<string, unknown>;
     }
@@ -994,7 +1021,7 @@ export class SubmissionService {
         id: reviewDoc.id as string | number,
         submissionId: subId,
         reviewerToken: token,
-        priorKnowledge: (reviewDoc.priorKnowledge as any) || "new_knowledge",
+        priorKnowledge: (reviewDoc.priorKnowledge as SubmissionReviewItem["priorKnowledge"]) || "new_knowledge",
         scoreDepth: depth,
         scoreClarity: clarity,
         scorePracticality: practicality,
@@ -1016,6 +1043,7 @@ export class SubmissionService {
       textOffsetStart: number;
       textOffsetEnd: number;
       comment: string;
+      createdAt?: string;
     }
   ): Promise<SubmissionAnnotationItem> {
     const payload = await getPayload({ config });
@@ -1042,6 +1070,7 @@ export class SubmissionService {
         textOffsetEnd: Number(input.textOffsetEnd) || 0,
         comment: input.comment.trim(),
         status: "open",
+        ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       },
     });
 
