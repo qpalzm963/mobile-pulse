@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArticleToc } from "@/components/ArticleToc";
 import { Feedback } from "@/components/Feedback";
 
@@ -5,12 +6,12 @@ export default function WeeklyArticle() {
   return (
     <main className="article-page">
       <header className="site-header">
-        <a className="brand" href="/">
+        <Link className="brand" href="/">
           MOBILE <i>PULSE</i>
-        </a>
-        <a className="back-link" href="/">
+        </Link>
+        <Link className="back-link" href="/">
           ← 所有文章
-        </a>
+        </Link>
       </header>
 
       <div className="article-shell">

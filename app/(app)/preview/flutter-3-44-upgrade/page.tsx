@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import "./story.css";
 
 const checkpoints = [["01", "盤點", "列出所有原生 plugin、SDK 與自訂 channel。"], ["02", "乾淨建置", "在沒有 Pods 與 DerivedData 的環境編譯。"], ["03", "實機驗證", "測登入、推播、付款與 release archive。"]];
 
 export default function FlutterUpgradePreview() {
   const [active, setActive] = useState(0);
-  return <main className="story-page"><header className="site-header article-nav"><a className="brand" href="/">MOBILE <i>PULSE</i></a><span className="story-status">ARTICLE PREVIEW · NOT PUBLISHED</span><a className="back-link" href="/">← 首頁</a></header><article>
+  return <main className="story-page"><header className="site-header article-nav"><Link className="brand" href="/">MOBILE <i>PULSE</i></Link><span className="story-status">ARTICLE PREVIEW · NOT PUBLISHED</span><Link className="back-link" href="/">← 首頁</Link></header><article>
     <section className="story-hero"><div className="story-kicker"><span>FLUTTER FIELD NOTE</span><span>2026.08.13</span><span>07 MIN</span></div><h1>升級 Flutter 3.44 前，<br/><em>別先按下更新。</em></h1><p className="story-dek">這不是 widget 更新；是一次 iOS 依賴鏈的健康檢查。先用三個關卡找出真正會讓 release 失敗的地方。</p><div className="signal-row"><div><b>3</b><span>個必經關卡</span></div><div><b>1</b><span>個核心變化</span></div><div><b>0</b><span>張制式流程圖</span></div></div></section>
     <section className="upgrade-board"><div className="board-copy"><p className="eyebrow">THE SHIFT</p><h2>CocoaPods <i>→</i> SwiftPM</h2><p>Flutter 3.44 將 Swift Package Manager 納入 iOS／macOS 的預設依賴管理方向。真正的風險不在 Dart，而在你既有 plugin、原生 SDK 與 CI 的接點。</p></div><div className="risk-map"><p>影響範圍</p><div className="risk-stack"><span className="risk-low">Dart UI<small>低</small></span><span className="risk-mid">Flutter plugin<small>中</small></span><span className="risk-high">原生 SDK / CI<small>高</small></span></div><p className="map-foot">越靠近原生建置層，越應先驗證。</p></div></section>
     <section className="story-body intro-block"><p className="lead">如果你的 App 有登入、推播、付款或自己寫的 platform channel，升級不能只看首頁能不能開。你需要驗證的是一條從 Flutter SDK 到 Xcode、再到 CI 的完整鏈路。</p></section>

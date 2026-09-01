@@ -92,7 +92,7 @@ export default function GoogleA2uiAgentsSpeakUiArticle() {
           <h3>為什麼要拆成雙通道？</h3>
           <ol>
             <li><strong>串流防閃爍（Anti-Flickering）</strong>：當模型還在思考或調整數值時，Client 端只需要更新 <code>dataModelUpdate</code>，既有的 UI 元件不必被重新銷毀與重建，保證動畫與焦點流暢。</li>
-            <li><strong>扁平化字典（Flat ID Map）</strong>：所有元件以 ID 平鋪，容器元件僅記錄 <code>children: ["id1", "id2"]</code>。這大幅減輕了 LLM 串流生成深度嵌套 JSON 時括號錯位的問題。</li>
+            <li><strong>扁平化字典（Flat ID Map）</strong>：所有元件以 ID 平鋪，容器元件僅記錄 <code>children: [&quot;id1&quot;, &quot;id2&quot;]</code>。這大幅減輕了 LLM 串流生成深度嵌套 JSON 時括號錯位的問題。</li>
             <li><strong>雙向綁定與局部刷新</strong>：使用者在畫面上滑動 Slider，只會即時修改本地的 DataModel，不需重新向 Agent 請求整個 Surface。</li>
           </ol>
 
@@ -104,7 +104,7 @@ export default function GoogleA2uiAgentsSpeakUiArticle() {
             A2UI 在架構上落實了嚴格的<strong>零信任（Zero-Trust）原則</strong>：
           </p>
           <ul>
-            <li><strong>Agent 僅具備「提案權（Proposal Authority）」</strong>：Agent 生成的 UI 按鈕，只是在畫面上標記一個意圖代碼（例如 <code>action: "approve_transfer"</code>）。</li>
+            <li><strong>Agent 僅具備「提案權（Proposal Authority）」</strong>：Agent 生成的 UI 按鈕，只是在畫面上標記一個意圖代碼（例如 <code>action: &quot;approve_transfer&quot;</code>）。</li>
             <li><strong>Client 擁有「驗證權（Validation Authority）」</strong>：Client 的 Renderer 檢驗該 Action 是否存在於團隊的 Allowlist 中，不存在則拒絕掛載。</li>
             <li><strong>後端掌握「執行權（Execution Authority）」</strong>：當使用者在 UI 上點擊按鈕，送出 Action 時，後端 API 必須依循既有的 OAuth Session、權限策略與二次確認邏輯執行操作，絕不盲目信任 Client 傳來的意圖。</li>
           </ul>
