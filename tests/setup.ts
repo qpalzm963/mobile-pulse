@@ -77,7 +77,7 @@ for (const art of SEED_ARTICLES) {
 
   if (existing.docs.length > 0) {
     const doc = existing.docs[0];
-    await payload.update({
+    await (payload as any).update({
       collection: "articles",
       id: doc.id,
       data: {
@@ -88,12 +88,12 @@ for (const art of SEED_ARTICLES) {
         readTime: art.readTime || "5 MIN READ",
         publishedAt: isoDate,
         status: "published",
-        tags: tagIds,
+        tags: tagIds as any,
         contentMarkdown: art.contentMarkdown,
       },
     });
   } else {
-    await payload.create({
+    await (payload as any).create({
       collection: "articles",
       data: {
         title: art.title,
@@ -104,7 +104,7 @@ for (const art of SEED_ARTICLES) {
         readTime: art.readTime || "5 MIN READ",
         publishedAt: isoDate,
         status: "published",
-        tags: tagIds,
+        tags: tagIds as any,
         contentMarkdown: art.contentMarkdown,
       },
     });

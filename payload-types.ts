@@ -70,6 +70,10 @@ export interface Config {
     articles: Article;
     tags: Tag;
     users: User;
+    media: Media;
+    submissions: Submission;
+    'submission-reviews': SubmissionReview;
+    'submission-annotations': SubmissionAnnotation;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +84,10 @@ export interface Config {
     articles: ArticlesSelect<false> | ArticlesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    submissions: SubmissionsSelect<false> | SubmissionsSelect<true>;
+    'submission-reviews': SubmissionReviewsSelect<false> | SubmissionReviewsSelect<true>;
+    'submission-annotations': SubmissionAnnotationsSelect<false> | SubmissionAnnotationsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -135,6 +143,7 @@ export interface Article {
   publishedAt?: string | null;
   tags?: (number | Tag)[] | null;
   interactiveComponent?: string | null;
+  coverImage?: (number | null) | Media;
   contentMarkdown?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -149,6 +158,26 @@ export interface Tag {
   name: string;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  caption?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -176,6 +205,75 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submissions".
+ */
+export interface Submission {
+  id: number;
+  title: string;
+  /**
+   * Slug 由系統自動產生，不可人工修改
+   */
+  slug: string;
+  summary: string;
+  contentMarkdown: string;
+  authorAlias?: string | null;
+  /**
+   * Status is managed by the workflow. Use API actions to transition.
+   */
+  status: 'draft' | 'reviewing' | 'changes_requested' | 'approved' | 'published' | 'rejected';
+  tags?: (number | Tag)[] | null;
+  coverImage?: (number | null) | Media;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  publishedAt?: string | null;
+  publishedArticle?: (number | null) | Article;
+  /**
+   * Numeric legacy ID for backward-compat URL /reviews/:numericId
+   */
+  legacyId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-reviews".
+ */
+export interface SubmissionReview {
+  id: number;
+  submission: number | Submission;
+  /**
+   * Reviewer token is private — hidden from public API responses
+   */
+  reviewerToken: string;
+  priorKnowledge: 'new_knowledge' | 'familiar_surface' | 'already_expert';
+  scoreDepth: number;
+  scoreClarity: number;
+  scorePracticality: number;
+  generalFeedback?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-annotations".
+ */
+export interface SubmissionAnnotation {
+  id: number;
+  submission: number | Submission;
+  /**
+   * Reviewer token is private — hidden from public API responses
+   */
+  reviewerToken: string;
+  selectedText: string;
+  textOffsetStart: number;
+  textOffsetEnd: number;
+  comment: string;
+  status: 'open' | 'resolved';
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -212,6 +310,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'submissions';
+        value: number | Submission;
+      } | null)
+    | ({
+        relationTo: 'submission-reviews';
+        value: number | SubmissionReview;
+      } | null)
+    | ({
+        relationTo: 'submission-annotations';
+        value: number | SubmissionAnnotation;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -270,6 +384,7 @@ export interface ArticlesSelect<T extends boolean = true> {
   publishedAt?: T;
   tags?: T;
   interactiveComponent?: T;
+  coverImage?: T;
   contentMarkdown?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -307,6 +422,76 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  caption?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submissions_select".
+ */
+export interface SubmissionsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  summary?: T;
+  contentMarkdown?: T;
+  authorAlias?: T;
+  status?: T;
+  tags?: T;
+  coverImage?: T;
+  submittedAt?: T;
+  approvedAt?: T;
+  publishedAt?: T;
+  publishedArticle?: T;
+  legacyId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-reviews_select".
+ */
+export interface SubmissionReviewsSelect<T extends boolean = true> {
+  submission?: T;
+  reviewerToken?: T;
+  priorKnowledge?: T;
+  scoreDepth?: T;
+  scoreClarity?: T;
+  scorePracticality?: T;
+  generalFeedback?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-annotations_select".
+ */
+export interface SubmissionAnnotationsSelect<T extends boolean = true> {
+  submission?: T;
+  reviewerToken?: T;
+  selectedText?: T;
+  textOffsetStart?: T;
+  textOffsetEnd?: T;
+  comment?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

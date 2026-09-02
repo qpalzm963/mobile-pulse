@@ -25,7 +25,8 @@ interface MyRating {
 }
 
 interface Props {
-  submissionId: number;
+  /** Canonical review route identifier: a legacy numeric ID or a new submission slug. */
+  submissionId: string | number;
   initialStats: RatingStats;
   initialMyRating: MyRating | null;
   onRatingUpdated?: (newStats: RatingStats, myRating: MyRating) => void;

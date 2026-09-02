@@ -103,7 +103,7 @@ async function run() {
         existingMarkdown.includes("本文已同步遷移至 Payload CMS") ||
         existingMarkdown.length < 200;
 
-      await payload.update({
+      await (payload as any).update({
         collection: "articles",
         id: doc.id,
         data: {
@@ -114,13 +114,13 @@ async function run() {
           readTime: article.readTime || (doc.readTime as string) || "5 MIN READ",
           publishedAt: isoDate,
           status: "published",
-          tags: relatedTagIds,
+          tags: relatedTagIds as any,
           ...(isPlaceholder ? { contentMarkdown: article.contentMarkdown } : {}),
         },
       });
       console.log(`  ✓ Updated existing article with ISO date and verified content: ${article.title} (${article.slug})`);
     } else {
-      await payload.create({
+      await (payload as any).create({
         collection: "articles",
         data: {
           title: article.title,
@@ -131,7 +131,7 @@ async function run() {
           status: "published",
           author: article.author || "MOBILE PULSE 編輯部",
           readTime: article.readTime || "5 MIN READ",
-          tags: relatedTagIds,
+          tags: relatedTagIds as any,
           contentMarkdown: article.contentMarkdown,
         },
       });

@@ -17,5 +17,6 @@ export default defineConfig({
     environment: "node",
     pool: "forks",
     fileParallelism: false,
+    maxWorkers: 1,
   },
 });

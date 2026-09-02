@@ -10,6 +10,9 @@ import { Articles } from "./payload/collections/Articles";
 import { Media } from "./payload/collections/Media";
 import { Tags } from "./payload/collections/Tags";
 import { Users } from "./payload/collections/Users";
+import { Submissions } from "./payload/collections/Submissions";
+import { SubmissionReviews } from "./payload/collections/SubmissionReviews";
+import { SubmissionAnnotations } from "./payload/collections/SubmissionAnnotations";
 
 import { existsSync, mkdirSync } from "fs";
 
@@ -51,7 +54,15 @@ export default buildConfig({
       ],
     },
   },
-  collections: [Articles, Tags, Users, Media],
+  collections: [
+    Articles,
+    Tags,
+    Users,
+    Media,
+    Submissions,
+    SubmissionReviews,
+    SubmissionAnnotations,
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || "local-dev-payload-secret-mobile-pulse-987654321",
   typescript: {

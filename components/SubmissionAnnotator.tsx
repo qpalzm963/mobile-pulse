@@ -6,8 +6,7 @@ import { RichMarkdownRenderer } from "./RichMarkdownRenderer";
 
 export interface Annotation {
   id: number;
-  submissionId: number;
-  reviewerToken: string;
+  submissionId: string | number;
   selectedText: string;
   textOffsetStart: number;
   textOffsetEnd: number;
@@ -17,7 +16,8 @@ export interface Annotation {
 }
 
 interface Props {
-  submissionId: number;
+  /** Canonical review route identifier: a legacy numeric ID or a new submission slug. */
+  submissionId: string | number;
   content: string;
   initialAnnotations: Annotation[];
 }

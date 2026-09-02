@@ -46,8 +46,9 @@ tsconfig.tsbuildinfo
 # cloudflare local secrets
 .dev.vars
 
-# local sqlite data
+# local sqlite data & media uploads
 /.data/
+/media/
 /data/*.sqlite*
 *.sqlite*
 !.env.example

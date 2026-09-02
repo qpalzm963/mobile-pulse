@@ -29,7 +29,7 @@ describe("assertSchemaPresent", () => {
     }
 
     // 相對路徑會跟著工作目錄跑，錯誤訊息必須印出它實際解析到哪裡。
-    expect(message).toContain("/");
+    expect(message).toMatch(/[\\/]/);
     expect(message).toContain("DATABASE_FILE");
     expect(message).toContain("db:migrate");
   });

@@ -6,56 +6,12 @@ export const dynamic = "force-dynamic";
 // TODO(security): This endpoint is currently intended for internal/editorial deployment with trusted authors.
 // In upcoming issues (Auth/Permissions & Remote MCP), implement authentication check, user ownership binding, and rate limiting.
 
-const ALLOWED_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-];
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB file limit
-const MAX_REQUEST_SIZE = 12 * 1024 * 1024; // 12MB request limit (allows multipart boundaries, headers, alt/caption metadata)
-
-/**
- * Validates actual binary image signatures (Magic Bytes) to prevent spoofed MIME types.
- */
-export function detectImageSignature(buffer: Buffer): "image/png" | "image/jpeg" | "image/webp" | null {
-  if (!buffer || buffer.length < 12) return null;
-
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (
-    buffer[0] === 0x89 &&
-    buffer[1] === 0x50 &&
-    buffer[2] === 0x4e &&
-    buffer[3] === 0x47 &&
-    buffer[4] === 0x0d &&
-    buffer[5] === 0x0a &&
-    buffer[6] === 0x1a &&
-    buffer[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-
-  // JPEG: FF D8 FF
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-    return "image/jpeg";
-  }
-
-  // WebP: RIFF .... WEBP
-  if (
-    buffer[0] === 0x52 &&
-    buffer[1] === 0x49 &&
-    buffer[2] === 0x46 &&
-    buffer[3] === 0x46 &&
-    buffer[8] === 0x57 &&
-    buffer[9] === 0x45 &&
-    buffer[10] === 0x42 &&
-    buffer[11] === 0x50
-  ) {
-    return "image/webp";
-  }
-
-  return null;
-}
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE,
+  MAX_REQUEST_SIZE,
+  detectImageSignature,
+} from "@/lib/media";
 
 export async function GET(request: Request) {
   try {
@@ -69,7 +25,7 @@ export async function GET(request: Request) {
       sort: "-createdAt",
     });
 
-    const mediaList = result.docs.map((doc: Record<string, unknown>) => ({
+    const mediaList = result.docs.map((doc) => ({
       id: String(doc.id),
       url: `/api/media/${doc.id}`,
       filename: doc.filename,
