@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import React from "react";
-import { POST as uploadMedia, GET as listMedia, detectImageSignature } from "../app/api/media/route";
+import { POST as uploadMedia, GET as listMedia } from "../app/api/media/route";
 import { GET as getMediaById } from "../app/api/media/[id]/route";
 import { POST as createSubmission } from "../app/api/submissions/route";
 import { RichMarkdownRenderer } from "../components/RichMarkdownRenderer";
 import { insertTextAtCursor } from "../lib/content-markdown";
+import { detectImageSignature } from "../lib/media";
 
 describe("Media Collection & Upload Pipeline", () => {
   it("成功上傳有效圖片並取得 Media ID 與資源 URL", async () => {

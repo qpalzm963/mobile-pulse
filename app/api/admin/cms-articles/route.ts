@@ -45,9 +45,9 @@ export async function GET(request: Request) {
     // Map stats by slug
     const statsMap = new Map(stats.map((s) => [s.slug, s]));
 
-    const enrichedArticles = articlesRes.docs.map((art: Record<string, unknown>) => ({
+    const enrichedArticles = articlesRes.docs.map((art) => ({
       ...art,
-      stats: statsMap.get(art.slug as string) || {
+      stats: statsMap.get(art.slug) || {
         views: 0,
         useful: 0,
         notUseful: 0,

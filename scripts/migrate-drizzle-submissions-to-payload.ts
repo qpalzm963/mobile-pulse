@@ -149,7 +149,7 @@ export async function migrateDrizzleSubmissionsToPayload(): Promise<{
       });
 
       if (articleResult.docs.length > 0) {
-        const existingArticle = articleResult.docs[0] as Record<string, unknown>;
+        const existingArticle = articleResult.docs[0] as unknown as Record<string, unknown>;
         publishedArticleId = existingArticle.id as string | number;
         publishedArticleSnapshot = { ...existingArticle };
 

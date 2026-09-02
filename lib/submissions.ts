@@ -978,7 +978,7 @@ export class SubmissionService {
       const targetId = targetDoc.id;
       oldArticleSnapshot = { ...targetDoc }; // Save for rollback
 
-      publishedArticleDoc = (await payload.update({
+      publishedArticleDoc = (await (payload as any).update({
         collection: "articles",
         id: targetId as any,
         data: {
@@ -997,7 +997,7 @@ export class SubmissionService {
       })) as unknown as Record<string, unknown>;
     } else {
       isNewArticle = true;
-      publishedArticleDoc = (await payload.create({
+      publishedArticleDoc = (await (payload as any).create({
         collection: "articles",
         data: {
           title: existing.title,
@@ -1017,7 +1017,7 @@ export class SubmissionService {
 
     // Update Submission status with full rollback compensation (Blocker 3 fix)
     try {
-      await payload.update({
+      await (payload as any).update({
         collection: "submissions",
         id: existing.id as string | number,
         data: {
@@ -1031,14 +1031,14 @@ export class SubmissionService {
       if (isNewArticle && publishedArticleDoc?.id) {
         // New article: delete it to undo
         try {
-          await payload.delete({ collection: "articles", id: publishedArticleDoc.id as any });
+          await (payload as any).delete({ collection: "articles", id: publishedArticleDoc.id as any });
         } catch {
           console.error("[publishSubmission] rollback: failed to delete newly created article", publishedArticleDoc.id);
         }
       } else if (!isNewArticle && oldArticleSnapshot && publishedArticleDoc?.id) {
         // Existing article was updated: restore original state
         try {
-          await payload.update({
+          await (payload as any).update({
             collection: "articles",
             id: publishedArticleDoc.id as any,
             data: {
@@ -1262,7 +1262,7 @@ export class SubmissionService {
     });
 
     const subRef = typeof updated.submission === "object" && updated.submission !== null
-      ? (updated.submission as Record<string, unknown>).id
+      ? (updated.submission as { id: string | number }).id
       : updated.submission;
 
     return {

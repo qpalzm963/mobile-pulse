@@ -2,7 +2,7 @@ import { validateArticleInput } from "../../../lib/content-markdown";
 import { readJson } from "../../../lib/request";
 import { SubmissionService, type SubmissionStatus } from "../../../lib/submissions";
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   try {
     let statusParam: string | null = null;
     if (request && request.url) {

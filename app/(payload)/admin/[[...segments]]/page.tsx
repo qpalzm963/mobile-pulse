@@ -23,16 +23,16 @@ const Page = async ({ params, searchParams }: Args) => {
 
   // When visiting /admin directly, display the Bespoke Studio Dashboard
   if (segments.length === 0) {
-    let articles: Record<string, unknown>[] = [];
-    let tags: Record<string, unknown>[] = [];
+    let articles: Parameters<typeof BespokeStudioDashboard>[0]["initialArticles"] = [];
+    let tags: Parameters<typeof BespokeStudioDashboard>[0]["initialTags"] = [];
     try {
       const payload = await getPayload({ config });
       const [artRes, tagRes] = await Promise.all([
         payload.find({ collection: "articles", limit: 100, sort: "-updatedAt" }),
         payload.find({ collection: "tags", limit: 50 }),
       ]);
-      articles = artRes.docs as unknown as Record<string, unknown>[];
-      tags = tagRes.docs as unknown as Record<string, unknown>[];
+      articles = artRes.docs as unknown as Parameters<typeof BespokeStudioDashboard>[0]["initialArticles"];
+      tags = tagRes.docs as unknown as Parameters<typeof BespokeStudioDashboard>[0]["initialTags"];
     } catch (e) {
       console.error("Payload initial fetch error:", e);
     }

@@ -30,7 +30,7 @@ describe("Submissions & Peer Review System", () => {
     expect(postData.submission.contentMarkdown).toContain("Swift 6");
     expect(postData.submission.content).toBe(postData.submission.contentMarkdown); // Deprecated alias
 
-    const listRes = await listSubmissions();
+    const listRes = await listSubmissions(new Request("https://example.com/api/submissions"));
     expect(listRes.status).toBe(200);
     const listData = await listRes.json();
     expect(listData.length).toBeGreaterThanOrEqual(1);
