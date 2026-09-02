@@ -16,7 +16,37 @@ export const SubmissionReviews: CollectionConfig = {
     update: () => false,
     delete: () => false,
   },
+  hooks: {
+    beforeValidate: [
+      ({ data, originalDoc }) => {
+        if (data) {
+          const rawSubmission = data.submission ?? originalDoc?.submission;
+          const submissionId =
+            typeof rawSubmission === "object" && rawSubmission !== null
+              ? (rawSubmission as { id: string | number }).id
+              : rawSubmission;
+          const reviewerToken = data.reviewerToken ?? originalDoc?.reviewerToken;
+          if (submissionId && reviewerToken) {
+            data.reviewKey = `${submissionId}:${reviewerToken}`;
+          }
+        }
+        return data;
+      },
+    ],
+  },
   fields: [
+    {
+      name: "reviewKey",
+      type: "text",
+      required: true,
+      unique: true,
+      index: true,
+      label: "審稿唯一識別碼",
+      admin: {
+        readOnly: true,
+        description: "Derived unique key: `${submissionId}:${reviewerToken}` ensuring DB-level uniqueness",
+      },
+    },
     {
       name: "submission",
       type: "relationship",

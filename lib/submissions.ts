@@ -1132,12 +1132,19 @@ export class SubmissionService {
       throw new Error("Scores must be integers between 1 and 5");
     }
 
+    const reviewKey = `${subId}:${token}`;
+
     const existingReviews = await payload.find({
       collection: "submission-reviews",
       where: {
-        and: [
-          { submission: { equals: subId } },
-          { reviewerToken: { equals: token } },
+        or: [
+          { reviewKey: { equals: reviewKey } },
+          {
+            and: [
+              { submission: { equals: subId } },
+              { reviewerToken: { equals: token } },
+            ],
+          },
         ],
       },
       limit: 1,
@@ -1150,6 +1157,7 @@ export class SubmissionService {
         collection: "submission-reviews",
         id: existingReviews.docs[0].id,
         data: {
+          reviewKey,
           priorKnowledge: input.priorKnowledge || "new_knowledge",
           scoreDepth: depth,
           scoreClarity: clarity,
@@ -1159,20 +1167,58 @@ export class SubmissionService {
         },
       })) as unknown as Record<string, unknown>;
     } else {
-      reviewDoc = (await payload.create({
-        collection: "submission-reviews",
-        data: {
-          submission: subId as any,
-          reviewerToken: token,
-          priorKnowledge: input.priorKnowledge || "new_knowledge",
-          scoreDepth: depth,
-          scoreClarity: clarity,
-          scorePracticality: practicality,
-          generalFeedback: input.generalFeedback ? input.generalFeedback.trim() : null,
-          ...(input.createdAt ? { createdAt: input.createdAt } : {}),
-          ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
-        },
-      })) as unknown as Record<string, unknown>;
+      try {
+        reviewDoc = (await payload.create({
+          collection: "submission-reviews",
+          data: {
+            reviewKey,
+            submission: subId as any,
+            reviewerToken: token,
+            priorKnowledge: input.priorKnowledge || "new_knowledge",
+            scoreDepth: depth,
+            scoreClarity: clarity,
+            scorePracticality: practicality,
+            generalFeedback: input.generalFeedback ? input.generalFeedback.trim() : null,
+            ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+            ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
+          },
+        })) as unknown as Record<string, unknown>;
+      } catch (createError) {
+        // Handle concurrent request race: if another request created the review concurrently,
+        // fall back to finding and updating the existing review doc to guarantee idempotent upsert.
+        const concurrentReview = await payload.find({
+          collection: "submission-reviews",
+          where: {
+            or: [
+              { reviewKey: { equals: reviewKey } },
+              {
+                and: [
+                  { submission: { equals: subId } },
+                  { reviewerToken: { equals: token } },
+                ],
+              },
+            ],
+          },
+          limit: 1,
+        });
+        if (concurrentReview.docs.length > 0) {
+          reviewDoc = (await payload.update({
+            collection: "submission-reviews",
+            id: concurrentReview.docs[0].id,
+            data: {
+              reviewKey,
+              priorKnowledge: input.priorKnowledge || "new_knowledge",
+              scoreDepth: depth,
+              scoreClarity: clarity,
+              scorePracticality: practicality,
+              generalFeedback: input.generalFeedback ? input.generalFeedback.trim() : null,
+              ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
+            },
+          })) as unknown as Record<string, unknown>;
+        } else {
+          throw createError;
+        }
+      }
     }
 
     const updatedSubmission = (await this.getSubmissionById(subId, token))!;

@@ -21,7 +21,8 @@
     "test:all": "node --test tests/*.test.mjs && vitest run && vitest run --config packages/api-client/vitest.config.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs && tsx scripts/migrate-payload-reviews-reviewkey.ts",
+    "db:migrate:payload": "tsx scripts/migrate-payload-reviews-reviewkey.ts"
   },
   "dependencies": {
     "@payloadcms/db-sqlite": "^3.88.0",
