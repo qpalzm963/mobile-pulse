@@ -246,7 +246,7 @@ export interface SubmissionReview {
   /**
    * Derived unique key: `${submissionId}:${reviewerToken}` ensuring DB-level uniqueness
    */
-  reviewKey?: string | null;
+  reviewKey: string;
   submission: number | Submission;
   /**
    * Reviewer token is private — hidden from public API responses

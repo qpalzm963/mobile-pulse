@@ -1,3 +1,6 @@
+import Database from "better-sqlite3";
+import path from "node:path";
+import { existsSync, unlinkSync } from "node:fs";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { getPayload } from "payload";
 import config from "../payload.config";
@@ -12,6 +15,7 @@ import {
   submissionAnnotations as drizzleAnnotations,
 } from "../db/schema";
 import { migrateDrizzleSubmissionsToPayload } from "../scripts/migrate-drizzle-submissions-to-payload";
+import { migratePayloadReviewsReviewKey } from "../scripts/migrate-payload-reviews-reviewkey";
 import { Submissions, enforceSubmissionWorkflowStateMachine } from "../payload/collections/Submissions";
 import { SubmissionReviews } from "../payload/collections/SubmissionReviews";
 import { SubmissionAnnotations } from "../payload/collections/SubmissionAnnotations";
@@ -870,5 +874,95 @@ describe("Submission & Review Workflow Unified in Payload CMS (Issue #7)", () =>
     });
     expect(allReviews.docs.length).toBe(1);
     expect(allReviews.docs[0].reviewKey).toBe(`${sub.id}:${REVIEWER_1}`);
+  });
+
+  it("18. migratePayloadReviewsReviewKey backfills existing Payload reviews without reviewKey, deduplicates collisions, and enforces unique index", async () => {
+    const testDbPath = path.resolve(".data/test-migration-reviewkey.sqlite");
+    if (existsSync(testDbPath)) {
+      unlinkSync(testDbPath);
+    }
+
+    const db = new Database(testDbPath);
+    // Create legacy table without review_key
+    db.prepare(`
+      CREATE TABLE submission_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        submission_id INTEGER NOT NULL,
+        reviewer_token TEXT NOT NULL,
+        prior_knowledge TEXT NOT NULL DEFAULT 'new_knowledge',
+        score_depth NUMERIC NOT NULL,
+        score_clarity NUMERIC NOT NULL,
+        score_practicality NUMERIC NOT NULL,
+        general_feedback TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    `).run();
+
+    const subId = 12345;
+    const tokenA = "33333333-aaaa-4bbb-8ccc-dddddddddddd";
+    const tokenB = "44444444-aaaa-4bbb-8ccc-dddddddddddd";
+
+    // Insert review 1 for tokenA
+    db.prepare(`
+      INSERT INTO submission_reviews (submission_id, reviewer_token, prior_knowledge, score_depth, score_clarity, score_practicality, general_feedback, created_at, updated_at)
+      VALUES (?, ?, 'new_knowledge', 3, 3, 3, 'First rating', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')
+    `).run(subId, tokenA);
+
+    // Insert duplicate review for tokenA (simulating concurrent historical race, updated later)
+    db.prepare(`
+      INSERT INTO submission_reviews (submission_id, reviewer_token, prior_knowledge, score_depth, score_clarity, score_practicality, general_feedback, created_at, updated_at)
+      VALUES (?, ?, 'already_expert', 5, 5, 5, 'Updated rating', '2026-08-02T00:00:00.000Z', '2026-08-02T00:00:00.000Z')
+    `).run(subId, tokenA);
+
+    // Insert review for tokenB (single record)
+    db.prepare(`
+      INSERT INTO submission_reviews (submission_id, reviewer_token, prior_knowledge, score_depth, score_clarity, score_practicality, general_feedback, created_at, updated_at)
+      VALUES (?, ?, 'familiar_surface', 4, 4, 4, 'Token B rating', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')
+    `).run(subId, tokenB);
+
+    // Run migration
+    const result1 = migratePayloadReviewsReviewKey(testDbPath);
+    expect(result1.columnAdded).toBe(true);
+    expect(result1.uniqueIndexCreated).toBe(true);
+    expect(result1.duplicatesRemoved).toBe(1);
+    expect(result1.backfilledCount).toBe(2);
+
+    // Verify records in test DB directly
+    const rows = db.prepare("SELECT * FROM submission_reviews WHERE submission_id = ? ORDER BY id ASC").all(subId) as any[];
+    expect(rows.length).toBe(2);
+
+    const reviewA = rows.find((r) => r.reviewer_token === tokenA);
+    const reviewB = rows.find((r) => r.reviewer_token === tokenB);
+
+    expect(reviewA).toBeDefined();
+    expect(reviewA.review_key).toBe(`${subId}:${tokenA}`);
+    expect(reviewA.score_depth).toBe(5); // Kept the latest updated one
+
+    expect(reviewB).toBeDefined();
+    expect(reviewB.review_key).toBe(`${subId}:${tokenB}`);
+    expect(reviewB.score_depth).toBe(4);
+
+    // Direct insert of duplicate after migration must fail with unique constraint error
+    expect(() => {
+      db.prepare(`
+        INSERT INTO submission_reviews (submission_id, reviewer_token, prior_knowledge, score_depth, score_clarity, score_practicality, review_key)
+        VALUES (?, ?, 'new_knowledge', 1, 1, 1, ?)
+      `).run(subId, tokenA, `${subId}:${tokenA}`);
+    }).toThrow();
+
+    // Test Idempotency: re-running migration on the same DB produces identical result without removing valid data
+    const result2 = migratePayloadReviewsReviewKey(testDbPath);
+    expect(result2.columnAdded).toBe(false);
+    expect(result2.duplicatesRemoved).toBe(0);
+
+    const recheckRows = db.prepare("SELECT * FROM submission_reviews WHERE submission_id = ?").all(subId);
+    expect(recheckRows.length).toBe(2);
+
+    // Cleanup test db
+    db.close();
+    if (existsSync(testDbPath)) {
+      unlinkSync(testDbPath);
+    }
   });
 });

@@ -38,6 +38,7 @@ export const SubmissionReviews: CollectionConfig = {
     {
       name: "reviewKey",
       type: "text",
+      required: true,
       unique: true,
       index: true,
       label: "審稿唯一識別碼",
