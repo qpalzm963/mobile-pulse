@@ -779,4 +779,96 @@ describe("Submission & Review Workflow Unified in Payload CMS (Issue #7)", () =>
     expect(reconciledArticles.docs[0]?.status).toBe("published");
     expect(reconciledArticles.docs[0]?.publishedAt).toBe(createdAt);
   });
+
+  it("16. SubmissionReviews enforces DB-level uniqueness via reviewKey and rejects duplicates", async () => {
+    const payload = await getPayload({ config });
+    const sub = await SubmissionService.createDraft({
+      title: "test-review-uniqueness",
+      contentMarkdown: "# Review Uniqueness\n\nTesting DB-level review uniqueness constraints.",
+      submitImmediately: true,
+    });
+
+    const fields = SubmissionReviews.fields as any[];
+    const reviewKeyField = fields.find((f) => f.name === "reviewKey");
+    expect(reviewKeyField).toBeDefined();
+    expect(reviewKeyField.unique).toBe(true);
+
+    // Create first review doc directly via Payload
+    const firstReview = await (payload as any).create({
+      collection: "submission-reviews",
+      data: {
+        submission: sub.id,
+        reviewerToken: REVIEWER_1,
+        priorKnowledge: "new_knowledge",
+        scoreDepth: 4,
+        scoreClarity: 4,
+        scorePracticality: 4,
+      },
+    });
+    expect(firstReview.id).toBeDefined();
+    expect(firstReview.reviewKey).toBe(`${sub.id}:${REVIEWER_1}`);
+
+    // Direct create of second review with identical (submission, reviewerToken) must fail with unique constraint error
+    await expect(
+      (payload as any).create({
+        collection: "submission-reviews",
+        data: {
+          submission: sub.id,
+          reviewerToken: REVIEWER_1,
+          priorKnowledge: "already_expert",
+          scoreDepth: 5,
+          scoreClarity: 5,
+          scorePracticality: 5,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
+  it("17. SubmissionService.addOrUpdateReview handles concurrent calls without creating duplicate ratings", async () => {
+    const sub = await SubmissionService.createDraft({
+      title: "test-concurrent-review-upsert",
+      contentMarkdown: "# Concurrent Review\n\nTesting concurrent review submission handling.",
+      submitImmediately: true,
+    });
+
+    // Fire two review updates concurrently from the same reviewer
+    const [res1, res2] = await Promise.all([
+      SubmissionService.addOrUpdateReview(sub.slug, {
+        reviewerToken: REVIEWER_1,
+        priorKnowledge: "familiar_surface",
+        scoreDepth: 4,
+        scoreClarity: 4,
+        scorePracticality: 4,
+        generalFeedback: "Review A",
+      }),
+      SubmissionService.addOrUpdateReview(sub.slug, {
+        reviewerToken: REVIEWER_1,
+        priorKnowledge: "already_expert",
+        scoreDepth: 5,
+        scoreClarity: 5,
+        scorePracticality: 5,
+        generalFeedback: "Review B",
+      }),
+    ]);
+
+    expect(res1).toBeDefined();
+    expect(res2).toBeDefined();
+
+    // Verify submission ratingStats: count must be strictly 1
+    const detail = await SubmissionService.getSubmission(sub.slug, REVIEWER_1);
+    expect(detail).not.toBeNull();
+    expect(detail?.ratingStats.count).toBe(1);
+
+    // Verify raw collection: strictly 1 review document exists for this submission
+    const payload = await getPayload({ config });
+    const allReviews = await (payload as any).find({
+      collection: "submission-reviews",
+      where: {
+        submission: { equals: sub.id },
+      },
+      limit: 10,
+    });
+    expect(allReviews.docs.length).toBe(1);
+    expect(allReviews.docs[0].reviewKey).toBe(`${sub.id}:${REVIEWER_1}`);
+  });
 });

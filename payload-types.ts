@@ -243,6 +243,10 @@ export interface Submission {
  */
 export interface SubmissionReview {
   id: number;
+  /**
+   * Derived unique key: `${submissionId}:${reviewerToken}` ensuring DB-level uniqueness
+   */
+  reviewKey?: string | null;
   submission: number | Submission;
   /**
    * Reviewer token is private — hidden from public API responses
@@ -468,6 +472,7 @@ export interface SubmissionsSelect<T extends boolean = true> {
  * via the `definition` "submission-reviews_select".
  */
 export interface SubmissionReviewsSelect<T extends boolean = true> {
+  reviewKey?: T;
   submission?: T;
   reviewerToken?: T;
   priorKnowledge?: T;

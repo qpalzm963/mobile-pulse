@@ -310,12 +310,19 @@ export async function migrateDrizzleSubmissionsToPayload(): Promise<{
     const payloadSubId = submissionIdMap.get(rating.submissionId);
     if (!payloadSubId) continue;
 
+    const reviewKey = `${payloadSubId}:${rating.reviewerToken}`;
+
     const existingReview = await payload.find({
       collection: "submission-reviews",
       where: {
-        and: [
-          { submission: { equals: payloadSubId } },
-          { reviewerToken: { equals: rating.reviewerToken } },
+        or: [
+          { reviewKey: { equals: reviewKey } },
+          {
+            and: [
+              { submission: { equals: payloadSubId } },
+              { reviewerToken: { equals: rating.reviewerToken } },
+            ],
+          },
         ],
       },
       limit: 1,
@@ -326,6 +333,7 @@ export async function migrateDrizzleSubmissionsToPayload(): Promise<{
         collection: "submission-reviews",
         id: existingReview.docs[0].id,
         data: {
+          reviewKey,
           priorKnowledge: rating.priorKnowledge || "new_knowledge",
           scoreDepth: rating.scoreDepth,
           scoreClarity: rating.scoreClarity,
@@ -344,6 +352,7 @@ export async function migrateDrizzleSubmissionsToPayload(): Promise<{
       const createdReview = await payload.create({
         collection: "submission-reviews",
         data: {
+          reviewKey,
           submission: payloadSubId as any,
           reviewerToken: rating.reviewerToken,
           priorKnowledge: rating.priorKnowledge || "new_knowledge",
